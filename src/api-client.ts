@@ -4,6 +4,15 @@
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+function extractErrorMessage(body: string): string {
+  try {
+    const json = JSON.parse(body);
+    return json.error || json.message || body;
+  } catch {
+    return body;
+  }
+}
+
 export class ApiClient {
   private baseUrl: string;
   private timeoutMs: number;
@@ -37,14 +46,7 @@ export class ApiClient {
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      let message: string;
-      try {
-        const json = JSON.parse(body);
-        message = json.error || json.message || body;
-      } catch {
-        message = body;
-      }
+      const message = extractErrorMessage(await response.text());
       throw new Error(`Counterparty API error (${response.status}): ${message}`);
     }
 
@@ -65,24 +67,10 @@ export class ApiClient {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      let message: string;
-      try {
-        const json = JSON.parse(text);
-        message = json.error || json.message || text;
-      } catch {
-        message = text;
-      }
+      const message = extractErrorMessage(await response.text());
       throw new Error(`Counterparty API error (${response.status}): ${message}`);
     }
 
     return response.json();
-  }
-
-  /**
-   * Make a compose request. verbose=true is already applied by get().
-   */
-  async compose(endpoint: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.get(endpoint, params);
   }
 }

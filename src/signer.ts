@@ -2,13 +2,21 @@
  * Optional transaction signing using @scure/btc-signer and @noble libraries.
  * Only used when SIGNER_PRIVATE_KEY and SIGNER_ADDRESS env vars are set.
  */
-import { Transaction, p2pkh, p2wpkh, p2sh, p2tr } from '@scure/btc-signer';
+import { Transaction, p2wpkh, p2sh, p2tr } from '@scure/btc-signer';
 import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { createBase58check } from '@scure/base';
 
 const base58check = createBase58check(sha256);
+
+/** Shared options for parsing raw transactions with btc-signer. */
+const TX_PARSE_OPTS = {
+  allowUnknownInputs: true,
+  allowUnknownOutputs: true,
+  allowLegacyWitnessUtxo: true,
+  disableScriptCheck: true,
+} as const;
 
 export type AddressType = 'p2pkh' | 'p2wpkh' | 'p2sh-p2wpkh' | 'p2tr';
 
@@ -31,10 +39,11 @@ export function detectAddressType(address: string): AddressType {
 
 /**
  * Decode a WIF private key to hex and compressed flag.
+ * Supports both mainnet (0x80) and testnet (0xef) WIF keys.
  */
 export function decodeWIF(wif: string): { privateKey: string; compressed: boolean } {
   const decoded = base58check.decode(wif);
-  if (decoded[0] !== 0x80) {
+  if (decoded[0] !== 0x80 && decoded[0] !== 0xef) {
     throw new Error('Invalid WIF version byte');
   }
   const compressed = decoded.length === 34;
@@ -45,30 +54,8 @@ export function decodeWIF(wif: string): { privateKey: string; compressed: boolea
   };
 }
 
-/**
- * Get the public key from a private key hex.
- */
 function getPublicKey(privateKeyHex: string, compressed: boolean): Uint8Array {
   return secp256k1.getPublicKey(hexToBytes(privateKeyHex), compressed);
-}
-
-/**
- * Create the appropriate payment script for an address type.
- */
-function paymentScript(pubkeyBytes: Uint8Array, addressType: AddressType) {
-  switch (addressType) {
-    case 'p2pkh':
-      return p2pkh(pubkeyBytes);
-    case 'p2wpkh':
-      return p2wpkh(pubkeyBytes);
-    case 'p2sh-p2wpkh':
-      return p2sh(p2wpkh(pubkeyBytes));
-    case 'p2tr':
-      // For taproot, use x-only pubkey (drop the prefix byte)
-      return p2tr(pubkeyBytes.slice(1, 33));
-    default:
-      throw new Error(`Unsupported address type: ${addressType}`);
-  }
 }
 
 export interface SigningConfig {
@@ -114,7 +101,6 @@ export function initSigningConfig(): SigningConfig | null {
 }
 
 const CNTRPRTY_PREFIX = new Uint8Array([0x43, 0x4e, 0x54, 0x52, 0x50, 0x52, 0x54, 0x59]);
-const CNTRPRTY_PREFIX_HEX = '434e545250525459';
 const OP_RETURN = 0x6a;
 
 /**
@@ -143,9 +129,6 @@ function arc4Decrypt(key: Uint8Array, data: Uint8Array): Uint8Array {
   return out;
 }
 
-/**
- * Check if a byte array starts with the CNTRPRTY prefix.
- */
 function hasCntrprtyPrefix(data: Uint8Array): boolean {
   if (data.length < 8) return false;
   for (let i = 0; i < 8; i++) {
@@ -155,8 +138,7 @@ function hasCntrprtyPrefix(data: Uint8Array): boolean {
 }
 
 /**
- * Extract a push data segment from an OP_RETURN script.
- * Returns the pushed data bytes, or null if parsing fails.
+ * Extract pushed data from an OP_RETURN script.
  */
 function extractPushData(script: Uint8Array): Uint8Array | null {
   if (script.length < 2 || script[0] !== OP_RETURN) return null;
@@ -176,7 +158,6 @@ function extractPushData(script: Uint8Array): Uint8Array | null {
     dataLen = script[2] | (script[3] << 8);
     dataStart = 4;
   } else if (pushByte >= 1 && pushByte <= 75) {
-    // Direct push (1-75 bytes)
     dataLen = pushByte;
     dataStart = 2;
   } else {
@@ -190,25 +171,19 @@ function extractPushData(script: Uint8Array): Uint8Array | null {
 /**
  * Extract and decrypt OP_RETURN data from a raw transaction hex.
  * Counterparty encrypts OP_RETURN data with ARC4 using the first input's txid.
- * This function tries decryption first, then checks for an unencrypted prefix.
+ * Tries decryption first, then checks for an unencrypted prefix.
  * Returns the decrypted Counterparty data as hex (including CNTRPRTY prefix), or null.
  * This is done locally — no API call — so it does not trust the node.
  */
 export function extractOpReturnData(rawTransactionHex: string): string | null {
   const rawTxBytes = hexToBytes(rawTransactionHex);
-  const tx = Transaction.fromRaw(rawTxBytes, {
-    allowUnknownInputs: true,
-    allowUnknownOutputs: true,
-    allowLegacyWitnessUtxo: true,
-    disableScriptCheck: true,
-  });
+  const tx = Transaction.fromRaw(rawTxBytes, TX_PARSE_OPTS);
 
   // Get first input's txid for ARC4 decryption key
   let arc4Key: Uint8Array | null = null;
   if (tx.inputsLength > 0) {
     const firstInput = tx.getInput(0);
     if (firstInput?.txid) {
-      // txid may be Uint8Array or hex string depending on btc-signer version
       arc4Key = typeof firstInput.txid === 'string'
         ? hexToBytes(firstInput.txid)
         : new Uint8Array(firstInput.txid);
@@ -242,7 +217,6 @@ export function extractOpReturnData(rawTransactionHex: string): string | null {
 
 /**
  * Sign a raw transaction hex using the configured private key.
- * Uses API-provided input values and lock scripts when available (SegWit optimization).
  */
 export function signTransaction(
   rawTransactionHex: string,
@@ -259,20 +233,15 @@ export function signTransaction(
     const hasApiData = inputValues && lockScripts &&
                        inputValues.length > 0 && lockScripts.length > 0;
 
-    const rawTxBytes = hexToBytes(rawTransactionHex);
-    const parsedTx = Transaction.fromRaw(rawTxBytes, {
-      allowUnknownInputs: true,
-      allowUnknownOutputs: true,
-      allowLegacyWitnessUtxo: true,
-      disableScriptCheck: true,
-    });
+    if (!hasApiData) {
+      throw new Error(
+        'Signing requires inputs_values and lock_scripts from the compose response.'
+      );
+    }
 
-    const tx = new Transaction({
-      allowUnknownInputs: true,
-      allowUnknownOutputs: true,
-      allowLegacyWitnessUtxo: true,
-      disableScriptCheck: true,
-    });
+    const rawTxBytes = hexToBytes(rawTransactionHex);
+    const parsedTx = Transaction.fromRaw(rawTxBytes, TX_PARSE_OPTS);
+    const tx = new Transaction(TX_PARSE_OPTS);
 
     for (let i = 0; i < parsedTx.inputsLength; i++) {
       const input = parsedTx.getInput(i);
@@ -287,38 +256,17 @@ export function signTransaction(
         sighashType: 0x01, // SIGHASH_ALL
       };
 
-      if (isLegacy) {
-        // For legacy P2PKH, we need nonWitnessUtxo (full prev tx)
-        // Since the MCP server doesn't have mempool access, we require API data
-        if (!hasApiData) {
-          throw new Error(
-            'Legacy P2PKH signing requires input values and lock scripts from the compose response. ' +
-            'Use compose with verbose=true to get this data.'
-          );
+      inputData.witnessUtxo = {
+        script: hexToBytes(lockScripts[i]),
+        amount: BigInt(inputValues[i]),
+      };
+
+      // P2SH-P2WPKH needs the redeem script
+      if (!isLegacy && config.addressType === 'p2sh-p2wpkh') {
+        const redeemScript = p2wpkh(pubkeyBytes).script;
+        if (redeemScript) {
+          inputData.redeemScript = redeemScript;
         }
-        // Use witnessUtxo even for legacy when we have API data
-        // btc-signer handles this with allowLegacyWitnessUtxo
-        inputData.witnessUtxo = {
-          script: hexToBytes(lockScripts[i]),
-          amount: BigInt(inputValues[i]),
-        };
-      } else if (hasApiData) {
-        // SegWit with API-provided data
-        inputData.witnessUtxo = {
-          script: hexToBytes(lockScripts[i]),
-          amount: BigInt(inputValues[i]),
-        };
-        if (config.addressType === 'p2sh-p2wpkh') {
-          const redeemScript = p2wpkh(pubkeyBytes).script;
-          if (redeemScript) {
-            inputData.redeemScript = redeemScript;
-          }
-        }
-      } else {
-        throw new Error(
-          'Signing requires input values and lock scripts from the compose response. ' +
-          'Use compose with verbose=true to get this data.'
-        );
       }
 
       tx.addInput(inputData);
