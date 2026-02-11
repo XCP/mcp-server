@@ -17,7 +17,7 @@ Add to `claude_desktop_config.json` ([how to find it](https://modelcontextprotoc
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@21e14/mcp-server"]
+      "args": ["-y", "@21e14/mcp-server"]
     }
   }
 }
@@ -26,7 +26,16 @@ Add to `claude_desktop_config.json` ([how to find it](https://modelcontextprotoc
 ### Claude Code
 
 ```bash
-claude mcp add counterparty -- npx @21e14/mcp-server
+claude mcp add counterparty -- npx -y @21e14/mcp-server
+```
+
+With signing (see [Signing & Broadcasting](#signing--broadcasting)):
+
+```bash
+claude mcp add counterparty \
+  -e SIGNER_PRIVATE_KEY=L1aW4aubDFB7yfras2S1mN... \
+  -e SIGNER_ADDRESS=bc1q... \
+  -- npx -y @21e14/mcp-server
 ```
 
 Manage servers with `claude mcp list`, `claude mcp get counterparty`, or `claude mcp remove counterparty`.
@@ -36,7 +45,7 @@ Manage servers with `claude mcp list`, `claude mcp get counterparty`, or `claude
 Use `Ctrl+Shift+P` → **MCP: Add Server** → **Stdio**, then enter:
 
 ```
-npx @21e14/mcp-server
+npx -y @21e14/mcp-server
 ```
 
 Or add to `.vscode/mcp.json`:
@@ -47,7 +56,7 @@ Or add to `.vscode/mcp.json`:
     "counterparty": {
       "type": "stdio",
       "command": "npx",
-      "args": ["@21e14/mcp-server"]
+      "args": ["-y", "@21e14/mcp-server"]
     }
   }
 }
@@ -62,7 +71,7 @@ Add to `.cursor/mcp.json`:
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@21e14/mcp-server"]
+      "args": ["-y", "@21e14/mcp-server"]
     }
   }
 }
@@ -77,7 +86,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@21e14/mcp-server"]
+      "args": ["-y", "@21e14/mcp-server"]
     }
   }
 }
@@ -88,7 +97,7 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 In ChatGPT desktop, go to **Settings → Beta Features → MCP Servers**, then add:
 
 ```
-npx @21e14/mcp-server
+npx -y @21e14/mcp-server
 ```
 
 ### Any MCP Client
@@ -96,7 +105,7 @@ npx @21e14/mcp-server
 The server speaks stdio. Point any MCP-compatible client at:
 
 ```bash
-npx @21e14/mcp-server
+npx -y @21e14/mcp-server
 ```
 
 That's it. The agent can now query the Counterparty network and compose unsigned transactions.
@@ -110,7 +119,7 @@ To let the agent sign and broadcast transactions, add a signing key:
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@21e14/mcp-server"],
+      "args": ["-y", "@21e14/mcp-server"],
       "env": {
         "SIGNER_PRIVATE_KEY": "L1aW4aubDFB7yfras2S1mN...",
         "SIGNER_ADDRESS": "bc1q..."
