@@ -1,0 +1,24 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      counterpartyNode:
+        type: string
+        description: "Counterparty node URL (defaults to https://api.counterparty.io:4000)"
+      signerPrivateKey:
+        type: string
+        description: "WIF-encoded private key for transaction signing (optional)"
+      signerAddress:
+        type: string
+        description: "Bitcoin address for the signing key (optional, required with signerPrivateKey)"
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: ['@21e14/mcp-server'],
+      env: {
+        ...(config.counterpartyNode ? { COUNTERPARTY_NODE: config.counterpartyNode } : {}),
+        ...(config.signerPrivateKey ? { SIGNER_PRIVATE_KEY: config.signerPrivateKey } : {}),
+        ...(config.signerAddress ? { SIGNER_ADDRESS: config.signerAddress } : {})
+      }
+    })
