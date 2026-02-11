@@ -94,6 +94,19 @@ The compose endpoints return:
 - **Max order expiration**: 8064 blocks (~2 months)
 - **Max dispenser refills**: 5
 
+## Operational Tips
+
+### Bulk Operations & Transaction Chaining
+- Bitcoin Core limits unconfirmed transaction chains to **25 ancestors** (mempool policy). If you broadcast 25 transactions spending each other's outputs, the 26th will be rejected.
+- After broadcasting a transaction, **wait 15–30 seconds** before composing the next one. The Counterparty node needs time to see the new transaction in the mempool and reflect updated balances/UTXOs.
+- For sequenced operations (e.g. issue → attach → move), each step depends on the previous transaction's output. Compose each step only after confirming the prior broadcast succeeded and the node has processed it.
+
+### MPMA vs Individual Sends
+- MPMA (multi-party multi-asset) sends pack multiple transfers into one transaction using efficient bit-level encoding.
+- However, when the encoded data exceeds the OP_RETURN limit (~80 bytes), the transaction falls back to bare multisig encoding which uses more block weight.
+- For a small number of recipients (2–4), individual enhanced sends via OP_RETURN are often smaller and cheaper than a single MPMA transaction.
+- MPMA is most beneficial for large batches (10+) where the per-send overhead savings outweigh the encoding cost.
+
 ## API Pagination
 - Most list endpoints support \`cursor\`, \`limit\`, and \`offset\` parameters
 - The response includes a \`next_cursor\` field for fetching the next page
