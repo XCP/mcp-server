@@ -70,7 +70,7 @@ This enables the `sign_and_broadcast` tool, which composes, signs, and broadcast
 
 ## Available Tools
 
-### Query Tools (~20)
+### Query Tools (~19)
 Read-only queries against the Counterparty API:
 
 | Tool | Description |
@@ -78,8 +78,7 @@ Read-only queries against the Counterparty API:
 | `get_balances` | Get all token balances for an address |
 | `get_balance` | Get balance of a specific asset for an address |
 | `get_asset_info` | Get asset metadata (supply, divisibility, issuer) |
-| `get_asset_holders` | Get all holders of an asset |
-| `get_asset_balances` | Get all balances for an asset |
+| `get_asset_balances` | Get all balances for an asset across all holders |
 | `get_assets` | Search/list assets |
 | `get_issuances` | Get issuance history for an asset |
 | `get_orders` | Get open DEX orders |

@@ -56,19 +56,6 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
   );
 
   server.tool(
-    'get_asset_holders',
-    'Get all holders of a Counterparty asset',
-    {
-      asset: z.string().describe('Asset name'),
-      ...paginationParams,
-    },
-    async ({ asset, cursor, limit, offset }) => {
-      const data = await client.get(`/v2/assets/${asset}/holders`, { cursor, limit, offset });
-      return jsonResponse(data);
-    }
-  );
-
-  server.tool(
     'get_asset_balances',
     'Get all balances for a specific asset across all holders',
     {

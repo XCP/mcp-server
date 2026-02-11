@@ -7,11 +7,11 @@ Counterparty is a protocol built on top of Bitcoin that enables the creation and
 ## Key Concepts
 
 ### Assets / Tokens
-- **Named assets**: Custom names like PEPECASH, FLOORCARD (4+ uppercase chars, no starting with "A" followed by numbers)
-- **Numeric assets**: Automatically assigned IDs like A12345678901234567
-- **Subassets**: Child assets like PARENT.CHILD
+- **Named assets**: Custom names like PEPECASH, FLOORCARD (4+ uppercase chars, cannot start with "A" followed by numbers). Costs **0.5 XCP** to register.
+- **Numeric assets**: IDs like A12345678901234567 (13+ characters). **Free** to register.
+- **Subassets**: Child assets like PARENT.CHILD. **Free** to register.
 - **Divisible vs Indivisible**: Divisible assets have 8 decimal places (like BTC). Indivisible assets are whole numbers only.
-- **XCP**: The native Counterparty token, used for some protocol fees
+- **XCP**: The native Counterparty token, used for protocol fees.
 
 ### Quantities
 - For **divisible** assets, quantities in the API are in satoshi-like units (multiply display amount by 10^8)
@@ -22,7 +22,7 @@ Counterparty is a protocol built on top of Bitcoin that enables the creation and
 - Users can place **orders** to trade any asset pair (including BTC)
 - Orders are matched on-chain by the protocol
 - For BTC trades, the buyer must make a **BTCPay** transaction to complete the trade
-- Orders have an **expiration** in blocks
+- Orders have an **expiration** in blocks. **Maximum expiration is 8064 blocks** (~2 months)
 
 ### Dispensers
 - Automated token vending machines on Bitcoin addresses
@@ -55,6 +55,22 @@ The compose endpoints return:
 - \`rawtransaction\`: Unsigned transaction hex
 - \`params\`: The Counterparty parameters encoded in the transaction
 - When \`verbose=true\`: Additional data like \`inputs_values\` and \`lock_scripts\` for signing
+
+## Protocol Fees & Limits
+
+### Asset Registration Fees
+- **Named assets** (4-12 uppercase chars): **0.5 XCP**
+- **Numeric assets** (A + number, 13+ chars): **Free**
+- **Subassets** (PARENT.CHILD): **Free**
+
+### Transaction Fees
+- **Dividends**: **0.0002 XCP per holder** of the asset receiving dividends
+- **Sweep**: **0.5 XCP** base fee + anti-spam fee (0.001 XCP x2 per balance + 0.001 XCP x4 per issuance held)
+- All other transaction types (sends, orders, dispensers, etc.) have no XCP protocol fee — only the Bitcoin miner fee
+
+### Limits
+- **Max order expiration**: 8064 blocks (~2 months)
+- **Max dispenser refills**: 5
 
 ## API Pagination
 - Most list endpoints support \`cursor\`, \`limit\`, and \`offset\` parameters
