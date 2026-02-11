@@ -7,9 +7,9 @@ Counterparty is a protocol built on top of Bitcoin that enables the creation and
 ## Key Concepts
 
 ### Assets / Tokens
-- **Named assets**: Custom names like PEPECASH, FLOORCARD (4+ uppercase chars, cannot start with "A" followed by numbers). Costs **0.5 XCP** to register.
-- **Numeric assets**: IDs like A12345678901234567 (13+ characters). **Free** to register.
-- **Subassets**: Child assets like PARENT.CHILD. **Free** to register.
+- **Named assets**: Custom names like PEPECASH, FLOORCARD. Must be 4-12 uppercase letters and **cannot start with "A"** (that prefix is reserved for numeric assets). Costs **0.5 XCP** to register.
+- **Numeric assets**: Auto-assigned IDs in the form A + number (e.g. A12345678901234567). **Free** to register.
+- **Subassets**: Registered as PARENT.child (e.g. PEPECASH.RARE). Under the hood, subassets are numeric assets with an \`asset_longname\` field storing the human-readable name. When displaying assets, use \`asset_longname\` if present, otherwise \`asset\` (i.e. \`asset_longname ?? asset\`). **Free** to register.
 - **Divisible vs Indivisible**: Divisible assets have 8 decimal places (like BTC). Indivisible assets are whole numbers only.
 - **XCP**: The native Counterparty token, used for protocol fees.
 
@@ -32,10 +32,16 @@ Counterparty is a protocol built on top of Bitcoin that enables the creation and
 - **escrow_quantity** is the total tokens loaded into the dispenser
 
 ### UTXO-Attached Assets
-- Tokens can be **attached** to specific UTXOs (like Stamps/SRC-20)
+- Tokens can be **attached** to specific UTXOs
 - Attached tokens move when the UTXO is spent
 - Use **detach** to move tokens back to an address-based balance
 - Use **movetoutxo** to move a UTXO to a new output
+- UTXO operations work with any address type
+
+### Inscriptions
+- Counterparty can embed data via Bitcoin inscriptions (ordinal envelope scripts)
+- **Inscriptions require a taproot (P2TR) address**
+- Supported for: issuances, subasset issuances, fairminters, and broadcasts
 
 ### Fair Minting
 - **Fairminter**: Creates a new asset with fair launch mechanics
