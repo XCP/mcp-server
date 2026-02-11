@@ -6,3 +6,5 @@ dist/
 .env.*
 .DS_Store
 *.mcpb
+.mcpregistry_*
+mcp-publisher.exe
