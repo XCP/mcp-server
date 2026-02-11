@@ -113,6 +113,111 @@ The compose endpoints return:
 - Default limit is typically 100, max is 1000
 `;
 
+const XCP420_STANDARD = `# XCP-420 Fair Launch Standard
+
+XCP-420 is a community-driven fair launch standard for Counterparty fairminters. It defines fixed parameters so every launch is safe, fair, and repeatable.
+
+## Why XCP-420
+
+- **Familiarity**: Every mint follows the same parameters
+- **Fairness**: No premine, no creator rake, no hidden edge cases
+- **Safety**: Refunds enforced by the protocol if soft cap isn't met
+- **Anti-whale**: Max 0.35% of supply per address
+- **Trustless**: 100% enforced by the Counterparty protocol
+
+## Fixed Parameters
+
+| Parameter | Human Value | API Integer |
+|-----------|------------|-------------|
+| hard_cap | 10,000,000 tokens | 1000000000000000 |
+| soft_cap | 4,200,000 tokens (42%) | 420000000000000 |
+| price | 0.1 XCP per mint | 10000000 |
+| quantity_by_price | 1,000 tokens per mint | 100000000000 |
+| max_mint_per_tx | 35,000 tokens | 3500000000000 |
+| max_mint_per_address | 35,000 tokens (0.35%) | 3500000000000 |
+| Duration | 1,000 blocks (~7 days) | end_block = start_block + 1000 |
+| soft_cap_deadline_block | end_block - 1 | end_block - 1 |
+| burn_payment | true | true |
+| lock_quantity | true | true |
+| divisible | true | true |
+| premint_quantity | 0 | 0 |
+| minted_asset_commission | 0 | 0 |
+
+## Lifecycle
+
+1. **Rolled Up**: Scheduled to begin at start_block
+2. **Lit**: Minting open for 1,000 blocks (~1 week)
+3. **Burned**: If >= 4.2M tokens minted, all contributed XCP is burned and tokens distributed
+4. **Ashed**: If < 4.2M tokens minted, all XCP is automatically refunded (BTC miner fees excluded)
+
+Average result: ~285 addresses burn 1,000 XCP total to share 10M tokens.
+
+## How to Use
+
+Use the \`compose_xcp420_fairminter\` tool. Only three inputs are needed:
+- **asset**: The asset name to create
+- **start_block**: A future block height when minting starts (runs for exactly 1000 blocks)
+- **description**: Optional asset description
+
+All other parameters are automatically set to the XCP-420 standard values.
+`;
+
+const QUICK_START = `# Quick Start Workflows
+
+Common step-by-step workflows for Counterparty operations. Each workflow assumes you have a funded Bitcoin address.
+
+## Signing Mode
+
+The final step of each workflow uses \`sign_and_broadcast\`, which requires \`SIGNER_PRIVATE_KEY\` and \`SIGNER_ADDRESS\` environment variables. If these are not set, the server operates in **compose-only mode** — all compose tools still work and return unsigned transaction hex, but you cannot sign or broadcast.
+
+**Recommended setup**: Create a fresh keypair, fund it with only what you're willing to risk, and use a segwit address (bc1q... or bc1p...). This is your bot wallet — keep main holdings elsewhere.
+
+## Send Tokens
+
+1. \`get_asset_info\` — Check the asset's \`divisible\` flag
+2. \`get_balance\` — Confirm the source address holds enough of the asset
+3. \`get_fee_estimate\` — Get the current fee rate
+4. \`compose_send\` — Build the transaction (remember: divisible assets need quantity * 10^8)
+5. \`sign_and_broadcast\` — Sign and broadcast (pass \`rawtransaction\`, \`inputs_values\`, and \`lock_scripts\` from the compose response)
+
+## Create a New Asset
+
+1. \`get_balance\` — Confirm the address holds at least 0.5 XCP (named assets cost 0.5 XCP; numeric assets starting with "A" are free)
+2. \`compose_issuance\` — Build the issuance transaction (choose asset name, quantity, divisible, description)
+3. \`sign_and_broadcast\` — Sign and broadcast
+4. Wait for confirmation, then \`get_asset_info\` to verify
+
+## Set Up a Dispenser
+
+1. \`get_asset_info\` — Check divisibility of the asset you want to dispense
+2. \`get_balance\` — Confirm you hold enough of the asset
+3. \`compose_dispenser\` — Build the dispenser (set \`give_quantity\` per dispense, \`escrow_quantity\` total, \`mainchainrate\` in satoshis)
+4. \`sign_and_broadcast\` — Sign and broadcast
+5. Anyone can now send BTC to your address to receive tokens automatically
+
+## Place a DEX Order
+
+1. \`get_asset_info\` — Check divisibility of both assets in the pair
+2. \`get_orders_by_pair\` — Check the current order book for the trading pair
+3. \`compose_order\` — Build the order (\`give_asset\`, \`give_quantity\`, \`get_asset\`, \`get_quantity\`, \`expiration\` max 8064 blocks)
+4. \`sign_and_broadcast\` — Sign and broadcast
+5. If trading BTC: when matched, use \`get_order_matches\` to find the match, then \`compose_btcpay\` + \`sign_and_broadcast\` to complete the trade
+
+## Check Transaction Status
+
+1. \`get_transaction\` — Look up a specific transaction by hash
+2. \`unpack_transaction\` — Decode the embedded Counterparty message to verify what was sent
+
+## Tips
+
+- Always check \`get_asset_info\` before composing — getting divisibility wrong means an off-by-10^8 error
+- After broadcasting, wait 15–30 seconds before composing the next transaction
+- Use \`get_fee_estimate\` to pick an appropriate \`sat_per_vbyte\` — overpaying wastes BTC, underpaying risks getting stuck
+- For bulk sends to many addresses, consider \`compose_mpma\` for 10+ recipients, or individual \`compose_send\` calls for 2–4 recipients
+- For high-value transactions, use \`decode_transaction\` or \`unpack_transaction\` to verify the composed transaction before signing
+- The \`sign_and_broadcast\` tool automatically extracts and returns OP_RETURN data for verification, but manual inspection adds an extra safety layer
+`;
+
 export function registerResources(server: McpServer) {
   server.resource(
     'protocol-overview',
@@ -126,6 +231,38 @@ export function registerResources(server: McpServer) {
         uri: 'counterparty://protocol-overview',
         mimeType: 'text/markdown',
         text: PROTOCOL_OVERVIEW,
+      }],
+    })
+  );
+
+  server.resource(
+    'xcp420-standard',
+    'counterparty://xcp420-standard',
+    {
+      description: 'XCP-420 fair launch standard — fixed parameters for safe, fair, repeatable token launches',
+      mimeType: 'text/markdown',
+    },
+    async () => ({
+      contents: [{
+        uri: 'counterparty://xcp420-standard',
+        mimeType: 'text/markdown',
+        text: XCP420_STANDARD,
+      }],
+    })
+  );
+
+  server.resource(
+    'quick-start',
+    'counterparty://quick-start',
+    {
+      description: 'Step-by-step workflows for common Counterparty operations (send tokens, create assets, dispensers, DEX orders)',
+      mimeType: 'text/markdown',
+    },
+    async () => ({
+      contents: [{
+        uri: 'counterparty://quick-start',
+        mimeType: 'text/markdown',
+        text: QUICK_START,
       }],
     })
   );

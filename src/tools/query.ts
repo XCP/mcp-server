@@ -1,15 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
-import { jsonResponse, safeHandler } from '../helpers.js';
+import { jsonResponse, safeHandler, readOnlyAnnotations } from '../helpers.js';
 
 const paginationParams = {
   cursor: z.string().optional().describe('Pagination cursor from previous response'),
-  limit: z.number().min(1).max(1000).default(100).optional().describe('Number of results to return'),
-  offset: z.number().optional().describe('Number of results to skip'),
+  limit: z.number().int().min(1).max(1000).default(100).optional().describe('Number of results to return'),
+  offset: z.number().int().optional().describe('Number of results to skip'),
 };
-
-const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };
 
 export function registerQueryTools(server: McpServer, client: ApiClient) {
   // ── Balances ──
@@ -21,7 +19,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       address: z.string().describe('Bitcoin address'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ address, cursor, limit, offset }) => {
       const data = await client.get(`/v2/addresses/${address}/balances`, { cursor, limit, offset });
       return jsonResponse(data);
@@ -35,7 +33,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       address: z.string().describe('Bitcoin address'),
       asset: z.string().describe('Asset name (e.g. XCP, PEPECASH)'),
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ address, asset }) => {
       const data = await client.get(`/v2/addresses/${address}/balances/${asset}`);
       return jsonResponse(data);
@@ -50,7 +48,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
     {
       asset: z.string().describe('Asset name (e.g. XCP, PEPECASH, A12345)'),
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ asset }) => {
       const data = await client.get(`/v2/assets/${asset}`);
       return jsonResponse(data);
@@ -64,7 +62,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       asset: z.string().describe('Asset name'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ asset, cursor, limit, offset }) => {
       const data = await client.get(`/v2/assets/${asset}/balances`, { cursor, limit, offset });
       return jsonResponse(data);
@@ -78,7 +76,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       named: z.boolean().optional().describe('Filter to named assets only'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ named, cursor, limit, offset }) => {
       const data = await client.get('/v2/assets', { named, cursor, limit, offset });
       return jsonResponse(data);
@@ -92,9 +90,23 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       asset: z.string().describe('Asset name'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ asset, cursor, limit, offset }) => {
       const data = await client.get(`/v2/assets/${asset}/issuances`, { cursor, limit, offset });
+      return jsonResponse(data);
+    })
+  );
+
+  server.tool(
+    'get_owned_assets',
+    'Get all assets issued/owned by a specific address',
+    {
+      address: z.string().describe('Bitcoin address'),
+      ...paginationParams,
+    },
+    readOnlyAnnotations,
+    safeHandler(async ({ address, cursor, limit, offset }) => {
+      const data = await client.get(`/v2/addresses/${address}/assets/owned`, { cursor, limit, offset });
       return jsonResponse(data);
     })
   );
@@ -103,12 +115,12 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     'get_orders',
-    'Get open orders on the Counterparty DEX',
+    'Get orders on the Counterparty DEX (default: open)',
     {
       status: z.enum(['open', 'expired', 'filled', 'cancelled']).default('open').optional().describe('Order status filter'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ status, cursor, limit, offset }) => {
       const data = await client.get('/v2/orders', { status, cursor, limit, offset });
       return jsonResponse(data);
@@ -121,7 +133,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
     {
       order_hash: z.string().describe('Order transaction hash'),
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ order_hash }) => {
       const data = await client.get(`/v2/orders/${order_hash}`);
       return jsonResponse(data);
@@ -136,7 +148,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       status: z.enum(['pending', 'completed', 'expired']).optional().describe('Match status filter'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ order_hash, status, cursor, limit, offset }) => {
       const data = await client.get(`/v2/orders/${order_hash}/matches`, { status, cursor, limit, offset });
       return jsonResponse(data);
@@ -152,9 +164,24 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       status: z.enum(['open', 'expired', 'filled', 'cancelled']).default('open').optional().describe('Order status filter'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ asset1, asset2, status, cursor, limit, offset }) => {
       const data = await client.get(`/v2/orders/${asset1}/${asset2}`, { status, cursor, limit, offset });
+      return jsonResponse(data);
+    })
+  );
+
+  server.tool(
+    'get_asset_orders',
+    'Get all DEX orders involving a specific asset',
+    {
+      asset: z.string().describe('Asset name'),
+      status: z.enum(['open', 'expired', 'filled', 'cancelled']).default('open').optional().describe('Order status filter'),
+      ...paginationParams,
+    },
+    readOnlyAnnotations,
+    safeHandler(async ({ asset, status, cursor, limit, offset }) => {
+      const data = await client.get(`/v2/assets/${asset}/orders`, { status, cursor, limit, offset });
       return jsonResponse(data);
     })
   );
@@ -167,7 +194,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       status: z.enum(['open', 'expired', 'filled', 'cancelled']).optional().describe('Order status filter'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ address, status, cursor, limit, offset }) => {
       const data = await client.get(`/v2/addresses/${address}/orders`, { status, cursor, limit, offset });
       return jsonResponse(data);
@@ -178,12 +205,12 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     'get_dispensers',
-    'Get all open Counterparty dispensers',
+    'Get Counterparty dispensers (default: open)',
     {
       status: z.enum(['0', '1', '10']).default('0').optional().describe('Status: 0=open, 1=closed, 10=closing'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ status, cursor, limit, offset }) => {
       const data = await client.get('/v2/dispensers', { status, cursor, limit, offset });
       return jsonResponse(data);
@@ -196,7 +223,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
     {
       hash: z.string().describe('Dispenser transaction hash'),
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ hash }) => {
       const data = await client.get(`/v2/dispensers/${hash}`);
       return jsonResponse(data);
@@ -205,13 +232,13 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     'get_dispensers_by_asset',
-    'Get all dispensers for a specific asset',
+    'Get dispensers for a specific asset (default: open)',
     {
       asset: z.string().describe('Asset name'),
       status: z.enum(['0', '1', '10']).default('0').optional().describe('Status: 0=open, 1=closed, 10=closing'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ asset, status, cursor, limit, offset }) => {
       const data = await client.get(`/v2/assets/${asset}/dispensers`, { status, cursor, limit, offset });
       return jsonResponse(data);
@@ -226,9 +253,39 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       status: z.enum(['0', '1', '10']).optional().describe('Status: 0=open, 1=closed, 10=closing'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ address, status, cursor, limit, offset }) => {
       const data = await client.get(`/v2/addresses/${address}/dispensers`, { status, cursor, limit, offset });
+      return jsonResponse(data);
+    })
+  );
+
+  server.tool(
+    'get_dispenses',
+    'Get dispense records (purchases) for a specific dispenser',
+    {
+      hash: z.string().describe('Dispenser transaction hash'),
+      ...paginationParams,
+    },
+    readOnlyAnnotations,
+    safeHandler(async ({ hash, cursor, limit, offset }) => {
+      const data = await client.get(`/v2/dispensers/${hash}/dispenses`, { cursor, limit, offset });
+      return jsonResponse(data);
+    })
+  );
+
+  // ── Dividends ──
+
+  server.tool(
+    'get_dividends',
+    'Get dividend distributions for a specific asset',
+    {
+      asset: z.string().describe('Asset name'),
+      ...paginationParams,
+    },
+    readOnlyAnnotations,
+    safeHandler(async ({ asset, cursor, limit, offset }) => {
+      const data = await client.get(`/v2/assets/${asset}/dividends`, { cursor, limit, offset });
       return jsonResponse(data);
     })
   );
@@ -242,7 +299,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       address: z.string().describe('Bitcoin address'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ address, cursor, limit, offset }) => {
       const data = await client.get(`/v2/addresses/${address}/transactions`, { cursor, limit, offset });
       return jsonResponse(data);
@@ -256,9 +313,22 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
       address: z.string().describe('Bitcoin address'),
       ...paginationParams,
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ address, cursor, limit, offset }) => {
       const data = await client.get(`/v2/addresses/${address}/sends`, { cursor, limit, offset });
+      return jsonResponse(data);
+    })
+  );
+
+  server.tool(
+    'get_transaction',
+    'Get details of a specific Counterparty transaction by its hash',
+    {
+      tx_hash: z.string().describe('Transaction hash'),
+    },
+    readOnlyAnnotations,
+    safeHandler(async ({ tx_hash }) => {
+      const data = await client.get(`/v2/transactions/${tx_hash}`);
       return jsonResponse(data);
     })
   );
@@ -271,7 +341,7 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
     {
       utxo: z.string().describe('UTXO identifier (txid:vout)'),
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ utxo }) => {
       const data = await client.get(`/v2/utxos/${utxo}/balances`);
       return jsonResponse(data);
@@ -281,10 +351,10 @@ export function registerQueryTools(server: McpServer, client: ApiClient) {
   // ── Block ──
 
   server.tool(
-    'get_block',
+    'get_latest_block',
     'Get the latest block information from the Counterparty node',
     {},
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async () => {
       const data = await client.get('/v2/blocks/last');
       return jsonResponse(data);

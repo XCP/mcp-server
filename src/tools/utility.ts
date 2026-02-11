@@ -1,9 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
-import { jsonResponse, safeHandler } from '../helpers.js';
-
-const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };
+import { jsonResponse, safeHandler, readOnlyAnnotations, composeAnnotations } from '../helpers.js';
 
 export function registerUtilityTools(server: McpServer, client: ApiClient) {
   // ── Unpack Transaction ──
@@ -12,10 +10,10 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
     'unpack_transaction',
     'Decode and unpack a Counterparty message from a raw transaction, revealing the embedded Counterparty data',
     {
-      raw_transaction: z.string().describe('Raw transaction hex containing a Counterparty message'),
-      block_index: z.number().optional().describe('Block index for context (optional)'),
+      raw_transaction: z.string().describe('Hex data to unpack (raw transaction hex or Counterparty data hex)'),
+      block_index: z.number().int().optional().describe('Block index for context (optional)'),
     },
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async ({ raw_transaction, block_index }) => {
       const data = await client.get('/v2/transactions/unpack', {
         datahex: raw_transaction,
@@ -31,7 +29,7 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
     'get_server_info',
     'Get Counterparty node status, version, and network information',
     {},
-    readOnly,
+    readOnlyAnnotations,
     safeHandler(async () => {
       const data = await client.get('/v2/');
       return jsonResponse(data);
@@ -43,14 +41,14 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
   server.tool(
     'api_request',
     'Make a raw API request to any Counterparty REST endpoint not covered by the other tools. ' +
-    'See the Counterparty API docs for available endpoints. ' +
+    'Full API reference: https://raw.githubusercontent.com/CounterpartyXCP/counterparty-core/refs/heads/master/apiary.apib — ' +
     'Example: endpoint="/v2/blocks/last", method="GET"',
     {
       endpoint: z.string().describe('API endpoint path (e.g. /v2/blocks/last, /v2/addresses/{addr}/credits)'),
       method: z.enum(['GET', 'POST']).default('GET').optional().describe('HTTP method'),
       params: z.record(z.string(), z.unknown()).optional().describe('Query parameters (for GET) or body fields (for POST)'),
     },
-    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    composeAnnotations,
     safeHandler(async ({ endpoint, method, params }) => {
       const data = method === 'POST'
         ? await client.post(endpoint, params ?? {})

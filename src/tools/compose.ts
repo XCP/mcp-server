@@ -1,34 +1,31 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
-import { jsonResponse, safeHandler } from '../helpers.js';
+import { jsonResponse, safeHandler, composeAnnotations } from '../helpers.js';
 
 // Common compose options shared across most compose endpoints
 const feeOptions = {
-  fee: z.number().optional().describe('Exact fee in satoshis (overrides fee_per_kb)'),
-  fee_per_kb: z.number().optional().describe('Fee rate in satoshis per kilobyte'),
+  sat_per_vbyte: z.number().min(0.1).optional().describe('Fee rate in satoshis per virtual byte (e.g. 1, 5.5, 0.15). Check get_fee_estimate for current market rates.'),
 };
 
 const utxoOptions = {
   inputs_set: z.string().optional().describe('Comma-separated UTXOs to use as inputs (txid:vout)'),
 };
 
-const composeAnnotations = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
-
 export function registerComposeTools(server: McpServer, client: ApiClient) {
   // ── Send ──
 
   server.tool(
     'compose_send',
-    'Compose a transaction to send Counterparty tokens to an address. Returns unsigned transaction hex and PSBT.',
+    'Compose a transaction to send Counterparty tokens to an address',
     {
       address: z.string().describe('Source Bitcoin address'),
       destination: z.string().describe('Destination Bitcoin address'),
       asset: z.string().describe('Asset to send (e.g. XCP, PEPECASH)'),
-      quantity: z.number().describe('Raw integer amount. For divisible assets: multiply human amount by 10^8 (e.g. 1.0 XCP = 100000000). For indivisible: use whole number. Check get_asset_info for divisibility.'),
+      quantity: z.number().int().min(1).describe('Raw integer amount. For divisible assets: multiply human amount by 10^8 (e.g. 1.0 XCP = 100000000). For indivisible: use whole number. Check get_asset_info for divisibility.'),
       memo: z.string().optional().describe('Optional memo to attach'),
       memo_is_hex: z.boolean().optional().describe('Whether memo is hex-encoded'),
-      use_enhanced_send: z.boolean().default(true).optional().describe('Use enhanced send (default true)'),
+      no_dispense: z.boolean().optional().describe('If true, prevent this send from triggering a dispenser on the destination address'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -43,21 +40,20 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     'compose_mpma',
-    'Compose a multi-party multi-asset send transaction. Sends multiple assets to multiple destinations in a single transaction.',
+    'Compose a multi-party multi-asset send transaction. Sends multiple assets to multiple destinations in a single transaction. All three arrays must be the same length.',
     {
       address: z.string().describe('Source Bitcoin address'),
-      destinations: z.string().describe('JSON-encoded array of {destination, asset, quantity} objects'),
+      assets: z.string().describe('Comma-separated asset names, one per recipient (e.g. "XCP,PEPECASH,XCP")'),
+      destinations: z.string().describe('Comma-separated destination addresses, one per recipient'),
+      quantities: z.string().describe('Comma-separated raw integer quantities, one per recipient. For divisible assets: human amount * 10^8.'),
       memo: z.string().optional().describe('Optional memo to attach'),
       memo_is_hex: z.boolean().optional().describe('Whether memo is hex-encoded'),
       ...feeOptions,
       ...utxoOptions,
     },
     composeAnnotations,
-    safeHandler(async ({ address, destinations, ...params }) => {
-      const data = await client.get(`/v2/addresses/${address}/compose/mpma`, {
-        ...params,
-        destinations,
-      });
+    safeHandler(async ({ address, ...params }) => {
+      const data = await client.get(`/v2/addresses/${address}/compose/mpma`, params);
       return jsonResponse(data);
     })
   );
@@ -70,10 +66,10 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address'),
       give_asset: z.string().describe('Asset to give/sell'),
-      give_quantity: z.number().describe('Raw integer amount to give. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
+      give_quantity: z.number().int().min(1).describe('Raw integer amount to give. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
       get_asset: z.string().describe('Asset to receive/buy'),
-      get_quantity: z.number().describe('Raw integer amount to receive. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
-      expiration: z.number().describe('Number of blocks until order expires'),
+      get_quantity: z.number().int().min(1).describe('Raw integer amount to receive. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
+      expiration: z.number().int().min(1).max(8064).describe('Number of blocks until order expires (max 8064, ~2 months)'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -128,12 +124,14 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address (will be the issuer)'),
       asset: z.string().describe('Asset name to create (4-12 uppercase chars, cannot start with A; or A + numeric ID for free numeric assets)'),
-      quantity: z.number().describe('Raw integer amount to issue. For divisible: human amount * 10^8. For indivisible: whole number.'),
+      quantity: z.number().int().describe('Raw integer amount to issue. For divisible: human amount * 10^8. For indivisible: whole number. Use 0 for metadata-only updates.'),
       divisible: z.boolean().default(true).optional().describe('Whether the asset is divisible (8 decimal places)'),
       description: z.string().optional().describe('Asset description (max 52 chars)'),
       transfer_destination: z.string().optional().describe('Transfer asset ownership to this address'),
       lock: z.boolean().optional().describe('Lock the asset (no further issuance)'),
       reset: z.boolean().optional().describe('Reset the asset'),
+      inscription: z.string().optional().describe('Base64-encoded inscription data (requires P2TR address)'),
+      mime_type: z.string().optional().describe('MIME type for inscription (e.g. image/png, text/plain)'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -152,10 +150,10 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address'),
       asset: z.string().describe('Asset to dispense'),
-      give_quantity: z.number().describe('Raw integer amount of asset per dispense. For divisible: human amount * 10^8.'),
-      escrow_quantity: z.number().describe('Raw integer total amount to load into dispenser. For divisible: human amount * 10^8.'),
-      mainchainrate: z.number().describe('BTC price per dispense (in satoshis)'),
-      status: z.number().default(0).optional().describe('0=open, 10=close'),
+      give_quantity: z.number().int().min(0).describe('Raw integer amount of asset per dispense. For divisible: human amount * 10^8. Use 0 when closing.'),
+      escrow_quantity: z.number().int().min(0).describe('Raw integer total amount to load into dispenser. For divisible: human amount * 10^8. Use 0 when closing.'),
+      mainchainrate: z.number().int().min(0).describe('BTC price per dispense (in satoshis). Use 0 when closing.'),
+      status: z.number().int().default(0).optional().describe('0=open, 10=close'),
       open_address: z.string().optional().describe('Open dispenser on a different address'),
       ...feeOptions,
       ...utxoOptions,
@@ -175,7 +173,7 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address (buyer)'),
       dispenser: z.string().describe('Dispenser address to buy from'),
-      quantity: z.number().describe('Amount of BTC to send in satoshis (1 BTC = 100000000)'),
+      quantity: z.number().int().min(1).describe('Amount of BTC to send in satoshis (1 BTC = 100000000)'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -195,7 +193,7 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       address: z.string().describe('Source Bitcoin address'),
       asset: z.string().describe('Asset whose holders will receive dividends'),
       dividend_asset: z.string().describe('Asset to distribute as dividend'),
-      quantity_per_unit: z.number().describe('Raw integer amount of dividend asset per unit held. For divisible: human amount * 10^8.'),
+      quantity_per_unit: z.number().int().min(1).describe('Raw integer amount of dividend asset per unit held. For divisible: human amount * 10^8.'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -216,7 +214,9 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       text: z.string().describe('Text to broadcast'),
       value: z.number().default(0).optional().describe('Numeric value'),
       fee_fraction: z.number().default(0).optional().describe('Fee fraction for bet matching'),
-      timestamp: z.number().optional().describe('Unix timestamp'),
+      timestamp: z.number().int().optional().describe('Unix timestamp'),
+      inscription: z.string().optional().describe('Base64-encoded inscription data (requires P2TR address)'),
+      mime_type: z.string().optional().describe('MIME type for inscription (e.g. image/png, text/plain)'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -235,7 +235,7 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address'),
       destination: z.string().describe('Destination Bitcoin address'),
-      flags: z.number().default(7).optional().describe('Bitfield: 1=transfer balances, 2=transfer ownership, 4=transfer BTC'),
+      flags: z.number().int().min(1).default(7).optional().describe('Bitfield: 1=transfer balances, 2=transfer ownership, 4=transfer BTC'),
       memo: z.string().optional().describe('Optional memo'),
       ...feeOptions,
       ...utxoOptions,
@@ -255,7 +255,7 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address'),
       asset: z.string().describe('Asset to destroy'),
-      quantity: z.number().describe('Raw integer amount to destroy. For divisible: human amount * 10^8.'),
+      quantity: z.number().int().min(1).describe('Raw integer amount to destroy. For divisible: human amount * 10^8.'),
       tag: z.string().optional().describe('Optional tag/memo for the destruction'),
       ...feeOptions,
       ...utxoOptions,
@@ -271,26 +271,76 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     'compose_fairminter',
-    'Compose a transaction to create a fair minting launch for a new asset',
+    'Compose a transaction to create a fair minting launch for a new asset. For XCP-420 compliant launches, use compose_xcp420_fairminter instead.',
     {
       address: z.string().describe('Source Bitcoin address'),
       asset: z.string().describe('Asset name to create'),
-      max_mint_per_tx: z.number().optional().describe('Raw integer max per tx. For divisible: human amount * 10^8.'),
-      hard_cap: z.number().optional().describe('Raw integer max total supply. For divisible: human amount * 10^8.'),
-      divisible: z.boolean().default(true).optional().describe('Whether the asset is divisible'),
-      start_block: z.number().optional().describe('Block height when minting starts'),
-      end_block: z.number().optional().describe('Block height when minting ends'),
-      soft_cap: z.number().optional().describe('Raw integer soft cap. For divisible: human amount * 10^8.'),
-      soft_cap_deadline_block: z.number().optional().describe('Deadline block for reaching soft cap'),
+      price: z.number().int().optional().describe('Raw integer price per mint in the payment asset (XCP). For XCP: human amount * 10^8 (e.g. 0.1 XCP = 10000000).'),
+      quantity_by_price: z.number().int().optional().describe('Raw integer tokens received per price payment. For divisible: human amount * 10^8.'),
+      max_mint_per_tx: z.number().int().optional().describe('Raw integer max per tx. For divisible: human amount * 10^8.'),
+      max_mint_per_address: z.number().int().optional().describe('Raw integer max per address. For divisible: human amount * 10^8.'),
+      hard_cap: z.number().int().optional().describe('Raw integer max total supply. For divisible: human amount * 10^8.'),
+      soft_cap: z.number().int().optional().describe('Raw integer soft cap. For divisible: human amount * 10^8.'),
+      soft_cap_deadline_block: z.number().int().optional().describe('Deadline block for reaching soft cap. Must be less than end_block.'),
+      divisible: z.boolean().default(true).optional().describe('Whether the asset is divisible (8 decimal places)'),
+      start_block: z.number().int().optional().describe('Block height when minting starts'),
+      end_block: z.number().int().optional().describe('Block height when minting ends'),
+      burn_payment: z.boolean().optional().describe('Whether payment is burned (true) or sent to issuer (false)'),
+      lock_quantity: z.boolean().optional().describe('Lock supply so no further issuance is possible'),
+      premint_quantity: z.number().int().optional().describe('Raw integer amount to premint to issuer. For divisible: human amount * 10^8.'),
       minted_asset_commission: z.number().optional().describe('Commission fraction (0-1) on minted assets'),
-      burn_payment: z.boolean().optional().describe('Whether BTC payment is burned'),
-      premint_quantity: z.number().optional().describe('Raw integer amount to premint. For divisible: human amount * 10^8.'),
       description: z.string().optional().describe('Asset description'),
+      inscription: z.string().optional().describe('Base64-encoded inscription data (requires P2TR address)'),
+      mime_type: z.string().optional().describe('MIME type for inscription (e.g. image/png, text/plain)'),
       ...feeOptions,
       ...utxoOptions,
     },
     composeAnnotations,
     safeHandler(async ({ address, ...params }) => {
+      const data = await client.get(`/v2/addresses/${address}/compose/fairminter`, params);
+      return jsonResponse(data);
+    })
+  );
+
+  // ── XCP-420 Fairminter ──
+
+  server.tool(
+    'compose_xcp420_fairminter',
+    'Compose a XCP-420 compliant fair launch. XCP-420 is a community standard that enforces fixed parameters: ' +
+    '10M supply, 4.2M soft cap, 0.1 XCP per mint, 1000 tokens per mint, 1000 block duration, ' +
+    'no premine, no commission, burn payment, locked supply. ' +
+    'Only the asset name, start block, and description are configurable.',
+    {
+      address: z.string().describe('Source Bitcoin address'),
+      asset: z.string().describe('Asset name to create (4-12 uppercase chars, cannot start with A)'),
+      start_block: z.number().int().describe('Block height when minting starts. Must be a future block. Minting runs for exactly 1000 blocks.'),
+      description: z.string().default('XCP-420 compliant fair launch').optional().describe('Asset description'),
+      ...feeOptions,
+      ...utxoOptions,
+    },
+    composeAnnotations,
+    safeHandler(async ({ address, asset, start_block, description, sat_per_vbyte, inputs_set }) => {
+      const end_block = start_block + 1000;
+      const params = {
+        asset,
+        hard_cap: 1000000000000000,           // 10M tokens (divisible, *10^8)
+        soft_cap: 420000000000000,            // 4.2M tokens
+        price: 10000000,                      // 0.1 XCP
+        quantity_by_price: 100000000000,      // 1000 tokens per mint
+        max_mint_per_tx: 3500000000000,       // 35,000 tokens
+        max_mint_per_address: 3500000000000,  // 35,000 tokens
+        start_block,
+        end_block,
+        soft_cap_deadline_block: end_block - 1,
+        burn_payment: true,
+        lock_quantity: true,
+        divisible: true,
+        premint_quantity: 0,
+        minted_asset_commission: 0,
+        description,
+        ...(sat_per_vbyte !== undefined ? { sat_per_vbyte } : {}),
+        ...(inputs_set !== undefined ? { inputs_set } : {}),
+      };
       const data = await client.get(`/v2/addresses/${address}/compose/fairminter`, params);
       return jsonResponse(data);
     })
@@ -304,7 +354,7 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address'),
       asset: z.string().describe('Asset to mint'),
-      quantity: z.number().optional().describe('Raw integer amount to mint. For divisible: human amount * 10^8. If omitted, mints max allowed.'),
+      quantity: z.number().int().min(1).optional().describe('Raw integer amount to mint. For divisible: human amount * 10^8. If omitted, mints max allowed.'),
       ...feeOptions,
       ...utxoOptions,
     },
@@ -323,8 +373,8 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
     {
       address: z.string().describe('Source Bitcoin address'),
       asset: z.string().describe('Asset to attach'),
-      quantity: z.number().describe('Raw integer amount to attach. For divisible: human amount * 10^8.'),
-      destination_vout: z.number().optional().describe('Output index to attach to'),
+      quantity: z.number().int().min(1).describe('Raw integer amount to attach. For divisible: human amount * 10^8.'),
+      destination_vout: z.number().int().optional().describe('Output index to attach to'),
       ...feeOptions,
       ...utxoOptions,
     },

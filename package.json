@@ -1,7 +1,7 @@
 {
-  "name": "@xcp/mcp-server",
+  "name": "@21e14/mcp-server",
   "version": "1.0.0",
-  "description": "Counterparty MCP Server - AI agent access to the Counterparty protocol",
+  "description": "MCP server for the Counterparty token protocol on Bitcoin. Query balances, assets, orders, dispensers, and compose/sign/broadcast transactions.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -16,12 +16,18 @@
     "inspector": "npx @modelcontextprotocol/inspector node dist/index.js"
   },
   "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
     "counterparty",
     "xcp",
-    "mcp",
     "bitcoin",
+    "blockchain",
+    "tokens",
+    "dex",
+    "claude",
     "ai",
-    "model-context-protocol"
+    "ai-agent"
   ],
   "author": "Counterparty",
   "license": "MIT",

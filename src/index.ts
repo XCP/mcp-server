@@ -5,11 +5,11 @@ import { ApiClient } from './api-client.js';
 import { initSigningConfig } from './signer.js';
 import { createServer } from './server.js';
 
-const nodeUrl = process.env.COUNTERPARTY_NODE;
-if (!nodeUrl) {
-  console.error('Error: COUNTERPARTY_NODE environment variable is required.');
-  console.error('Set it to your Counterparty node URL, e.g. https://api.counterparty.io');
-  process.exit(1);
+const DEFAULT_NODE_URL = 'https://api.counterparty.io:4000';
+const nodeUrl = process.env.COUNTERPARTY_NODE || DEFAULT_NODE_URL;
+
+if (!process.env.COUNTERPARTY_NODE) {
+  console.error(`No COUNTERPARTY_NODE set, using default: ${DEFAULT_NODE_URL}`);
 }
 
 const client = new ApiClient(nodeUrl);

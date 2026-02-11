@@ -1,10 +1,10 @@
-# @xcp/mcp-server
+# Counterparty MCP Server
 
-A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that gives AI agents access to the [Counterparty](https://counterparty.io) protocol — query balances, assets, orders, dispensers, compose transactions, and optionally sign & broadcast, all through your own Counterparty node.
+Give AI agents the ability to interact with [Counterparty](https://counterparty.io) — the token protocol built on Bitcoin. Query balances, assets, orders, and dispensers. Compose, sign, and broadcast transactions. Works with any MCP-compatible client.
 
 ## Quick Start
 
-### 1. Add to your MCP client config
+Add to your MCP client config. No API keys or environment variables required.
 
 **Claude Desktop** (`claude_desktop_config.json`):
 
@@ -13,10 +13,7 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that gi
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@xcp/mcp-server"],
-      "env": {
-        "COUNTERPARTY_NODE": "https://api.counterparty.io"
-      }
+      "args": ["@21e14/mcp-server"]
     }
   }
 }
@@ -29,29 +26,25 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that gi
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@xcp/mcp-server"],
-      "env": {
-        "COUNTERPARTY_NODE": "https://api.counterparty.io"
-      }
+      "args": ["@21e14/mcp-server"]
     }
   }
 }
 ```
 
-This gives the agent read-only access to query balances, assets, orders, dispensers, etc., and the ability to compose unsigned transactions.
+That's it. The agent can now query the Counterparty network and compose unsigned transactions.
 
-### 2. (Optional) Enable transaction signing
+## Signing & Broadcasting
 
-To let the agent sign and broadcast transactions, add a signing key and address:
+To let the agent sign and broadcast transactions, add a signing key:
 
 ```json
 {
   "mcpServers": {
     "counterparty": {
       "command": "npx",
-      "args": ["@xcp/mcp-server"],
+      "args": ["@21e14/mcp-server"],
       "env": {
-        "COUNTERPARTY_NODE": "https://api.counterparty.io",
         "SIGNER_PRIVATE_KEY": "L1aW4aubDFB7yfras2S1mN...",
         "SIGNER_ADDRESS": "bc1q..."
       }
@@ -60,105 +53,110 @@ To let the agent sign and broadcast transactions, add a signing key and address:
 }
 ```
 
-This enables the `sign_and_broadcast` tool. **Read the Security section below before enabling this.**
+This enables the `sign_and_broadcast` tool. **Signing gives the AI agent the ability to spend funds** — read the security guidance below.
 
-## Security
+### Bot wallet pattern (recommended)
 
-**Signing gives the AI agent the ability to spend funds.** Treat this seriously.
+1. **Generate a fresh keypair offline.** Don't reuse an existing wallet or generate keys through the AI.
+2. **Fund it with only what you're willing to risk.** This is your blast radius.
+3. **Use a segwit address.** P2WPKH (`bc1q...`), P2SH-P2WPKH (`3...`), or P2TR (`bc1p...`). Legacy P2PKH is not supported.
+4. **One key, one address.** No HD derivation. Counterparty reuses addresses by design.
+5. **Keep main holdings elsewhere.** The bot wallet is disposable.
 
-### Recommended: bot wallet pattern
+### Compose-only mode
 
-1. **Generate a fresh keypair offline.** Do not reuse an existing wallet. Use standard Bitcoin tools to create a new private key and address — do not generate keys through the MCP server or AI.
-2. **Fund it with only what you're willing to risk.** Transfer a small, bounded amount of BTC and tokens to the bot address. This is your blast radius.
-3. **Use a single address.** One private key, one address, no HD derivation complexity. Counterparty reuses addresses by design.
-4. **Keep your main holdings elsewhere.** The bot wallet is disposable. If something goes wrong, you lose only what's in it.
-
-### Without signing keys
-
-Without `SIGNER_PRIVATE_KEY` and `SIGNER_ADDRESS`, the server operates in compose-only mode. All compose tools still work and return unsigned transaction hex, which you can review and sign offline using your own tools. This is the safest mode of operation.
+Without signing keys, the server returns unsigned transaction hex from all compose tools. You can review and sign offline with your own tooling. This is the safest mode.
 
 ### Transaction verification
 
-When `sign_and_broadcast` is used, the server extracts and returns the embedded OP_RETURN data from the composed transaction before signing. This is done locally without trusting the API, so the AI can verify the transaction contents match what was requested.
+`sign_and_broadcast` extracts and returns the embedded OP_RETURN data from the transaction before signing — done locally without trusting the API, so the agent can verify the transaction matches what was requested.
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `COUNTERPARTY_NODE` | Yes | URL of your Counterparty node (e.g. `https://api.counterparty.io`) |
-| `SIGNER_PRIVATE_KEY` | No | WIF-encoded private key for transaction signing |
-| `SIGNER_ADDRESS` | No | Bitcoin address corresponding to the private key (determines address type for signing) |
+| `COUNTERPARTY_NODE` | No | Counterparty node URL (default: `https://api.counterparty.io:4000`) |
+| `SIGNER_PRIVATE_KEY` | No | WIF-encoded private key for signing |
+| `SIGNER_ADDRESS` | No | Bitcoin address for the signing key |
 
-## Available Tools
+## Tools
 
-### Query Tools (19)
-Read-only queries against the Counterparty API:
+### Query (24)
 
 | Tool | Description |
 |------|-------------|
-| `get_balances` | Get all token balances for an address |
-| `get_balance` | Get balance of a specific asset for an address |
-| `get_asset_info` | Get asset metadata (supply, divisibility, issuer) |
-| `get_asset_balances` | Get all balances for an asset across all holders |
+| `get_balances` | All token balances for an address |
+| `get_balance` | Single asset balance for an address |
+| `get_asset_info` | Asset metadata (supply, divisibility, issuer) |
+| `get_asset_balances` | All holders of an asset |
 | `get_assets` | Search/list assets |
-| `get_issuances` | Get issuance history for an asset |
-| `get_orders` | Get open DEX orders |
-| `get_order` | Get a specific order |
-| `get_order_matches` | Get matches for an order |
-| `get_orders_by_pair` | Get order book for a trading pair |
-| `get_address_orders` | Get orders by address |
-| `get_dispensers` | Get all open dispensers |
-| `get_dispenser` | Get a specific dispenser |
-| `get_dispensers_by_asset` | Get dispensers for an asset |
-| `get_address_dispensers` | Get dispensers by address |
-| `get_address_transactions` | Get transaction history |
-| `get_sends` | Get sends from an address |
-| `get_utxo_balances` | Get token balances on a UTXO |
-| `get_block` | Get latest block info |
+| `get_issuances` | Issuance history for an asset |
+| `get_owned_assets` | Assets issued by an address |
+| `get_orders` | DEX orders |
+| `get_order` | Single order by hash |
+| `get_order_matches` | Matches for an order |
+| `get_orders_by_pair` | Order book for a trading pair |
+| `get_asset_orders` | Orders involving an asset |
+| `get_address_orders` | Orders by address |
+| `get_dispensers` | Dispensers |
+| `get_dispenser` | Single dispenser by hash |
+| `get_dispensers_by_asset` | Dispensers for an asset |
+| `get_address_dispensers` | Dispensers by address |
+| `get_dispenses` | Purchases from a dispenser |
+| `get_dividends` | Dividend distributions for an asset |
+| `get_address_transactions` | Transaction history for an address |
+| `get_sends` | Token transfers from an address |
+| `get_transaction` | Single transaction by hash |
+| `get_utxo_balances` | Tokens attached to a UTXO |
+| `get_latest_block` | Latest block info |
 
-### Compose Tools (17)
-Build unsigned transactions (returns raw tx hex + PSBT):
+### Compose (18)
 
 | Tool | Description |
 |------|-------------|
 | `compose_send` | Send tokens to an address |
 | `compose_mpma` | Multi-party multi-asset send |
-| `compose_order` | Create a DEX order |
+| `compose_order` | Place a DEX order |
 | `compose_cancel` | Cancel an open order |
 | `compose_btcpay` | Pay for a matched BTC order |
-| `compose_issuance` | Issue/create a new asset |
-| `compose_dispenser` | Create/manage a dispenser |
+| `compose_issuance` | Create or update an asset (supports inscriptions) |
+| `compose_dispenser` | Create, open, or close a dispenser |
 | `compose_dispense` | Buy from a dispenser |
-| `compose_dividend` | Distribute dividends |
-| `compose_broadcast` | Broadcast a message |
-| `compose_sweep` | Sweep all assets to destination |
-| `compose_destroy` | Burn tokens |
-| `compose_fairminter` | Create a fair launch |
-| `compose_fairmint` | Mint from a fairminter |
+| `compose_dividend` | Distribute dividends to holders |
+| `compose_broadcast` | Broadcast a message (supports inscriptions) |
+| `compose_sweep` | Sweep all assets to a destination |
+| `compose_destroy` | Permanently burn tokens |
+| `compose_fairminter` | Create a fair launch (supports inscriptions) |
+| `compose_xcp420_fairminter` | XCP-420 compliant fair launch |
+| `compose_fairmint` | Mint from an active fair launch |
 | `compose_attach` | Attach tokens to a UTXO |
 | `compose_detach` | Detach tokens from a UTXO |
-| `compose_movetoutxo` | Move UTXO to new address |
+| `compose_movetoutxo` | Move a UTXO to a new output |
 
-### Bitcoin Tools (4)
+### Bitcoin (4)
+
 | Tool | Description |
 |------|-------------|
-| `broadcast_transaction` | Broadcast a signed transaction |
-| `sign_and_broadcast` | Sign with local key and broadcast (requires `SIGNER_PRIVATE_KEY` + `SIGNER_ADDRESS`) |
-| `get_fee_estimate` | Get current fee rate |
-| `decode_transaction` | Decode a raw transaction |
+| `sign_and_broadcast` | Sign and broadcast (requires signing keys) |
+| `broadcast_transaction` | Broadcast an already-signed transaction |
+| `get_fee_estimate` | Current fee rate estimate |
+| `decode_transaction` | Decode raw transaction hex |
 
-### Utility Tools (3)
+### Utility (3)
+
 | Tool | Description |
 |------|-------------|
-| `unpack_transaction` | Decode a Counterparty message |
-| `get_server_info` | Get node status and version |
-| `api_request` | Generic escape hatch for any API endpoint |
+| `unpack_transaction` | Decode a Counterparty message from a transaction |
+| `get_server_info` | Node status and version |
+| `api_request` | Raw API request to any endpoint ([full API reference](https://raw.githubusercontent.com/CounterpartyXCP/counterparty-core/refs/heads/master/apiary.apib)) |
 
 ## Resources
 
-The server exposes an MCP resource with protocol documentation:
+The server includes protocol documentation that agents can read for context:
 
-- `counterparty://protocol-overview` — Summary of Counterparty concepts (assets, divisibility, DEX, dispensers, fair minting, etc.)
+- `counterparty://protocol-overview` — Assets, quantities, DEX, dispensers, fair minting, fees, and operational tips
+- `counterparty://xcp420-standard` — XCP-420 fair launch standard
+- `counterparty://quick-start` — Step-by-step workflows for common operations
 
 ## Development
 
@@ -166,21 +164,17 @@ The server exposes an MCP resource with protocol documentation:
 git clone https://github.com/XCP/mcp-server.git
 cd mcp-server
 npm install
-npm run build
 npm test
 ```
 
-Test locally by adding to your MCP client config:
+Test locally:
 
 ```json
 {
   "mcpServers": {
     "counterparty": {
       "command": "node",
-      "args": ["/path/to/mcp-server/dist/index.js"],
-      "env": {
-        "COUNTERPARTY_NODE": "https://api.counterparty.io"
-      }
+      "args": ["/path/to/mcp-server/dist/index.js"]
     }
   }
 }
