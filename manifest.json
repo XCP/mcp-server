@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "counterparty",
   "display_name": "Counterparty",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Give AI agents the ability to interact with Counterparty — the token protocol built on Bitcoin. Query balances, assets, orders, dispensers, and compose/sign/broadcast transactions.",
   "author": {
     "name": "Counterparty"

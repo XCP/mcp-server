@@ -1,6 +1,6 @@
 {
   "name": "@21e14/mcp-server",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server for the Counterparty token protocol on Bitcoin. Query balances, assets, orders, dispensers, and compose/sign/broadcast transactions.",
   "type": "module",
   "main": "dist/index.js",
