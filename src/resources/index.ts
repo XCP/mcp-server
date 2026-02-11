@@ -13,10 +13,26 @@ Counterparty is a protocol built on top of Bitcoin that enables the creation and
 - **Divisible vs Indivisible**: Divisible assets have 8 decimal places (like BTC). Indivisible assets are whole numbers only.
 - **XCP**: The native Counterparty token, used for protocol fees.
 
-### Quantities
-- For **divisible** assets, quantities in the API are in satoshi-like units (multiply display amount by 10^8)
-- For **indivisible** assets, quantities are whole numbers
-- Always check the asset's \`divisible\` flag via \`get_asset_info\` when working with quantities
+### Quantities — CRITICAL
+
+All API responses include both raw integer and human-readable normalized fields:
+- \`quantity\`: Raw integer (e.g. \`100000000\`)
+- \`quantity_normalized\`: Human-readable string (e.g. \`"1.00000000"\`)
+
+**Divisible assets** (like XCP): stored as integers with 8 decimal places. 1.0 XCP = \`100000000\` in the API.
+**Indivisible assets**: stored as whole integers. 1 token = \`1\` in the API.
+
+**IMPORTANT: Compose endpoints accept ONLY raw integers, never normalized values.**
+- To send 1.0 of a divisible asset, pass \`quantity: 100000000\` (not \`1\` or \`1.0\`)
+- To send 1 of an indivisible asset, pass \`quantity: 1\`
+- Getting this wrong means sending 0.00000001 instead of 1.0 — an off-by-10^8 error
+
+**Before composing any transaction**, check the asset's \`divisible\` flag via \`get_asset_info\`:
+- If \`divisible: true\`: multiply the human amount by \`10^8\` → pass as integer
+- If \`divisible: false\`: pass the amount directly as integer
+- BTC is always expressed in satoshis (1 BTC = \`100000000\` satoshis)
+
+When reading query results, prefer the \`_normalized\` fields for display and the raw integer fields for compose inputs.
 
 ### DEX (Decentralized Exchange)
 - Users can place **orders** to trade any asset pair (including BTC)
@@ -60,7 +76,7 @@ Counterparty is a protocol built on top of Bitcoin that enables the creation and
 The compose endpoints return:
 - \`rawtransaction\`: Unsigned transaction hex
 - \`params\`: The Counterparty parameters encoded in the transaction
-- When \`verbose=true\`: Additional data like \`inputs_values\` and \`lock_scripts\` for signing
+- \`inputs_values\` and \`lock_scripts\`: Data needed for signing (always included via verbose mode)
 
 ## Protocol Fees & Limits
 

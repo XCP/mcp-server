@@ -11,9 +11,13 @@ export class ApiClient {
 
   /**
    * Make a GET request to the Counterparty API.
+   * Always includes verbose=true to get normalized quantity fields.
    */
   async get(endpoint: string, params?: Record<string, unknown>): Promise<unknown> {
     const url = new URL(`${this.baseUrl}${endpoint}`);
+
+    // Always request verbose mode for normalized quantity fields
+    url.searchParams.set('verbose', 'true');
 
     if (params) {
       for (const [key, value] of Object.entries(params)) {
@@ -68,9 +72,9 @@ export class ApiClient {
   }
 
   /**
-   * Make a compose request (GET with verbose=true).
+   * Make a compose request. verbose=true is already applied by get().
    */
   async compose(endpoint: string, params?: Record<string, unknown>): Promise<unknown> {
-    return this.get(endpoint, { ...params, verbose: true });
+    return this.get(endpoint, params);
   }
 }
