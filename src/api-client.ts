@@ -1,12 +1,17 @@
 /**
  * HTTP client for communicating with a Counterparty node's REST API.
  */
+
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 export class ApiClient {
   private baseUrl: string;
+  private timeoutMs: number;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, timeoutMs = DEFAULT_TIMEOUT_MS) {
     // Remove trailing slash
     this.baseUrl = baseUrl.replace(/\/+$/, '');
+    this.timeoutMs = timeoutMs;
   }
 
   /**
@@ -27,7 +32,9 @@ export class ApiClient {
       }
     }
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
 
     if (!response.ok) {
       const body = await response.text();
@@ -54,6 +61,7 @@ export class ApiClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!response.ok) {

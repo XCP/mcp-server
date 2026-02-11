@@ -80,25 +80,37 @@ export interface SigningConfig {
 
 /**
  * Initialize signing config from environment variables.
- * Returns null if PRIVATE_KEY or ADDRESS is not set.
+ * Returns null if PRIVATE_KEY and ADDRESS are not set.
+ * Logs an error and returns null if they are set but invalid.
  */
 export function initSigningConfig(): SigningConfig | null {
   const wif = process.env.PRIVATE_KEY;
   const address = process.env.ADDRESS;
 
-  if (!wif || !address) {
+  if (!wif && !address) {
     return null;
   }
 
-  const { privateKey, compressed } = decodeWIF(wif);
-  const addressType = detectAddressType(address);
+  if (!wif || !address) {
+    console.error('Error: Both PRIVATE_KEY and ADDRESS must be set for signing. Got only one.');
+    return null;
+  }
 
-  return {
-    privateKeyHex: privateKey,
-    compressed,
-    address,
-    addressType,
-  };
+  try {
+    const { privateKey, compressed } = decodeWIF(wif);
+    const addressType = detectAddressType(address);
+
+    return {
+      privateKeyHex: privateKey,
+      compressed,
+      address,
+      addressType,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Error: Invalid PRIVATE_KEY: ${message}`);
+    return null;
+  }
 }
 
 /**

@@ -70,7 +70,7 @@ This enables the `sign_and_broadcast` tool, which composes, signs, and broadcast
 
 ## Available Tools
 
-### Query Tools (~19)
+### Query Tools (19)
 Read-only queries against the Counterparty API:
 
 | Tool | Description |
@@ -95,7 +95,7 @@ Read-only queries against the Counterparty API:
 | `get_utxo_balances` | Get token balances on a UTXO |
 | `get_block` | Get latest block info |
 
-### Compose Tools (~17)
+### Compose Tools (17)
 Build unsigned transactions (returns raw tx hex + PSBT):
 
 | Tool | Description |
@@ -118,7 +118,7 @@ Build unsigned transactions (returns raw tx hex + PSBT):
 | `compose_detach` | Detach tokens from a UTXO |
 | `compose_movetoutxo` | Move UTXO to new address |
 
-### Bitcoin Tools (~4)
+### Bitcoin Tools (4)
 | Tool | Description |
 |------|-------------|
 | `broadcast_transaction` | Broadcast a signed transaction |
@@ -126,7 +126,7 @@ Build unsigned transactions (returns raw tx hex + PSBT):
 | `get_fee_estimate` | Get current fee rate |
 | `decode_transaction` | Decode a raw transaction |
 
-### Utility Tools (~3)
+### Utility Tools (3)
 | Tool | Description |
 |------|-------------|
 | `unpack_transaction` | Decode a Counterparty message |

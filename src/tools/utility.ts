@@ -48,7 +48,7 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
     {
       endpoint: z.string().describe('API endpoint path (e.g. /v2/blocks/last, /v2/addresses/{addr}/credits)'),
       method: z.enum(['GET', 'POST']).default('GET').optional().describe('HTTP method'),
-      params: z.record(z.string()).optional().describe('Query parameters (for GET) or body fields (for POST)'),
+      params: z.record(z.unknown()).optional().describe('Query parameters (for GET) or body fields (for POST)'),
     },
     { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     safeHandler(async ({ endpoint, method, params }) => {

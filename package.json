@@ -25,12 +25,18 @@
   ],
   "author": "Counterparty",
   "license": "MIT",
+  "mcpName": "io.github.XCP/mcp-server",
+  "homepage": "https://github.com/XCP/mcp-server",
+  "bugs": "https://github.com/XCP/mcp-server/issues",
   "repository": {
     "type": "git",
     "url": "https://github.com/XCP/mcp-server.git"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@noble/secp256k1": "^3.0.0",
