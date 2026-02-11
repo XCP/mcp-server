@@ -19,7 +19,7 @@ const server = createServer(client, signingConfig);
 if (signingConfig) {
   console.error(`Signing enabled for address: ${signingConfig.address} (${signingConfig.addressType})`);
 } else {
-  console.error('Signing disabled (set PRIVATE_KEY and ADDRESS env vars to enable)');
+  console.error('Signing disabled (set SIGNER_PRIVATE_KEY and SIGNER_ADDRESS to enable)');
 }
 
 const transport = new StdioServerTransport();

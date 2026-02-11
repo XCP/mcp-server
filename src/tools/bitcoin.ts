@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
-import { SigningConfig, signTransaction } from '../signer.js';
+import { SigningConfig, signTransaction, extractOpReturnData } from '../signer.js';
 import { jsonResponse, safeHandler } from '../helpers.js';
 
 export function registerBitcoinTools(server: McpServer, client: ApiClient, signingConfig: SigningConfig | null) {
@@ -37,6 +37,9 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
       },
       { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
       safeHandler(async ({ raw_transaction, inputs_values, lock_scripts }) => {
+        // Extract OP_RETURN data locally (trustless — does not call the API)
+        const opReturnData = extractOpReturnData(raw_transaction);
+
         const signedHex = signTransaction(
           raw_transaction,
           signingConfig,
@@ -49,6 +52,8 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
         });
 
         return jsonResponse({
+          op_return_data: opReturnData,
+          has_counterparty_data: opReturnData !== null,
           signed_transaction: signedHex,
           broadcast_result: data,
         });

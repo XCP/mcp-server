@@ -38,9 +38,11 @@ A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server that gi
 }
 ```
 
+This gives the agent read-only access to query balances, assets, orders, dispensers, etc., and the ability to compose unsigned transactions.
+
 ### 2. (Optional) Enable transaction signing
 
-To let the agent sign and broadcast transactions, add your private key and address:
+To let the agent sign and broadcast transactions, add a signing key and address:
 
 ```json
 {
@@ -50,23 +52,42 @@ To let the agent sign and broadcast transactions, add your private key and addre
       "args": ["@xcp/mcp-server"],
       "env": {
         "COUNTERPARTY_NODE": "https://api.counterparty.io",
-        "PRIVATE_KEY": "L1aW4aubDFB7yfras2S1mN...",
-        "ADDRESS": "bc1q..."
+        "SIGNER_PRIVATE_KEY": "L1aW4aubDFB7yfras2S1mN...",
+        "SIGNER_ADDRESS": "bc1q..."
       }
     }
   }
 }
 ```
 
-This enables the `sign_and_broadcast` tool, which composes, signs, and broadcasts in one step.
+This enables the `sign_and_broadcast` tool. **Read the Security section below before enabling this.**
+
+## Security
+
+**Signing gives the AI agent the ability to spend funds.** Treat this seriously.
+
+### Recommended: bot wallet pattern
+
+1. **Generate a fresh keypair offline.** Do not reuse an existing wallet. Use standard Bitcoin tools to create a new private key and address — do not generate keys through the MCP server or AI.
+2. **Fund it with only what you're willing to risk.** Transfer a small, bounded amount of BTC and tokens to the bot address. This is your blast radius.
+3. **Use a single address.** One private key, one address, no HD derivation complexity. Counterparty reuses addresses by design.
+4. **Keep your main holdings elsewhere.** The bot wallet is disposable. If something goes wrong, you lose only what's in it.
+
+### Without signing keys
+
+Without `SIGNER_PRIVATE_KEY` and `SIGNER_ADDRESS`, the server operates in compose-only mode. All compose tools still work and return unsigned transaction hex, which you can review and sign offline using your own tools. This is the safest mode of operation.
+
+### Transaction verification
+
+When `sign_and_broadcast` is used, the server extracts and returns the embedded OP_RETURN data from the composed transaction before signing. This is done locally without trusting the API, so the AI can verify the transaction contents match what was requested.
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `COUNTERPARTY_NODE` | Yes | URL of your Counterparty node (e.g. `https://api.counterparty.io`) |
-| `PRIVATE_KEY` | No | WIF-encoded private key for transaction signing |
-| `ADDRESS` | No | Bitcoin address corresponding to the private key (needed to determine address type for signing) |
+| `SIGNER_PRIVATE_KEY` | No | WIF-encoded private key for transaction signing |
+| `SIGNER_ADDRESS` | No | Bitcoin address corresponding to the private key (determines address type for signing) |
 
 ## Available Tools
 
@@ -122,7 +143,7 @@ Build unsigned transactions (returns raw tx hex + PSBT):
 | Tool | Description |
 |------|-------------|
 | `broadcast_transaction` | Broadcast a signed transaction |
-| `sign_and_broadcast` | Sign with local key and broadcast (requires `PRIVATE_KEY` + `ADDRESS`) |
+| `sign_and_broadcast` | Sign with local key and broadcast (requires `SIGNER_PRIVATE_KEY` + `SIGNER_ADDRESS`) |
 | `get_fee_estimate` | Get current fee rate |
 | `decode_transaction` | Decode a raw transaction |
 
@@ -146,6 +167,7 @@ git clone https://github.com/XCP/mcp-server.git
 cd mcp-server
 npm install
 npm run build
+npm test
 ```
 
 Test locally by adding to your MCP client config:
