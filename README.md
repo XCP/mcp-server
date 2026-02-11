@@ -29,12 +29,23 @@ Add to `claude_desktop_config.json` ([how to find it](https://modelcontextprotoc
 claude mcp add counterparty -- npx @21e14/mcp-server
 ```
 
-Or add to `.claude/settings.json`:
+Manage servers with `claude mcp list`, `claude mcp get counterparty`, or `claude mcp remove counterparty`.
+
+### VS Code (Copilot)
+
+Use `Ctrl+Shift+P` → **MCP: Add Server** → **Stdio**, then enter:
+
+```
+npx @21e14/mcp-server
+```
+
+Or add to `.vscode/mcp.json`:
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "counterparty": {
+      "type": "stdio",
       "command": "npx",
       "args": ["@21e14/mcp-server"]
     }
