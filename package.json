@@ -10,7 +10,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "prepare": "npm run build",
+    "inspector": "npx @modelcontextprotocol/inspector node dist/index.js"
   },
   "keywords": [
     "counterparty",
@@ -36,8 +39,9 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"

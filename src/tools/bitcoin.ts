@@ -2,10 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
 import { SigningConfig, signTransaction } from '../signer.js';
-
-function jsonResponse(data: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-}
+import { jsonResponse, safeHandler } from '../helpers.js';
 
 export function registerBitcoinTools(server: McpServer, client: ApiClient, signingConfig: SigningConfig | null) {
   // ── Broadcast Transaction ──
@@ -16,12 +13,13 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
     {
       raw_transaction: z.string().describe('Signed raw transaction hex'),
     },
-    async ({ raw_transaction }) => {
+    { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    safeHandler(async ({ raw_transaction }) => {
       const data = await client.post('/v2/bitcoin/transactions', {
         signedhex: raw_transaction,
       });
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Sign and Broadcast ──
@@ -37,31 +35,24 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
         inputs_values: z.array(z.number()).optional().describe('Input values in satoshis (from compose response btc_in_values or inputs_values)'),
         lock_scripts: z.array(z.string()).optional().describe('Input lock scripts in hex (from compose response lock_scripts)'),
       },
-      async ({ raw_transaction, inputs_values, lock_scripts }) => {
-        try {
-          const signedHex = signTransaction(
-            raw_transaction,
-            signingConfig,
-            inputs_values,
-            lock_scripts,
-          );
+      { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      safeHandler(async ({ raw_transaction, inputs_values, lock_scripts }) => {
+        const signedHex = signTransaction(
+          raw_transaction,
+          signingConfig,
+          inputs_values,
+          lock_scripts,
+        );
 
-          const data = await client.post('/v2/bitcoin/transactions', {
-            signedhex: signedHex,
-          });
+        const data = await client.post('/v2/bitcoin/transactions', {
+          signedhex: signedHex,
+        });
 
-          return jsonResponse({
-            signed_transaction: signedHex,
-            broadcast_result: data,
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unknown signing error';
-          return {
-            content: [{ type: 'text' as const, text: `Signing failed: ${message}` }],
-            isError: true,
-          };
-        }
-      }
+        return jsonResponse({
+          signed_transaction: signedHex,
+          broadcast_result: data,
+        });
+      })
     );
   }
 
@@ -73,10 +64,11 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
     {
       conf_target: z.number().default(3).optional().describe('Confirmation target in blocks (default 3)'),
     },
-    async ({ conf_target }) => {
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    safeHandler(async ({ conf_target }) => {
       const data = await client.get('/v2/bitcoin/estimatesmartfee', { conf_target });
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Decode Transaction ──
@@ -87,9 +79,10 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
     {
       raw_transaction: z.string().describe('Raw transaction hex to decode'),
     },
-    async ({ raw_transaction }) => {
+    { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    safeHandler(async ({ raw_transaction }) => {
       const data = await client.get('/v2/bitcoin/transactions/decode', { rawtransaction: raw_transaction });
       return jsonResponse(data);
-    }
+    })
   );
 }

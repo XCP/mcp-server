@@ -1,10 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
-
-function jsonResponse(data: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-}
+import { jsonResponse, safeHandler } from '../helpers.js';
 
 // Common compose options shared across most compose endpoints
 const feeOptions = {
@@ -15,6 +12,8 @@ const feeOptions = {
 const utxoOptions = {
   inputs_set: z.string().optional().describe('Comma-separated UTXOs to use as inputs (txid:vout)'),
 };
+
+const composeAnnotations = { readOnlyHint: false, destructiveHint: false, openWorldHint: true };
 
 export function registerComposeTools(server: McpServer, client: ApiClient) {
   // ── Send ──
@@ -33,10 +32,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/send`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── MPMA (Multi-Party Multi-Asset Send) ──
@@ -52,13 +52,14 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, destinations, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, destinations, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/mpma`, {
         ...params,
         destinations,
       });
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Order (DEX) ──
@@ -76,10 +77,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/order`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Cancel Order ──
@@ -93,10 +95,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/cancel`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── BTCPay ──
@@ -110,10 +113,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/btcpay`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Issuance ──
@@ -133,10 +137,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/issuance`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Dispenser ──
@@ -155,10 +160,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/dispenser`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Dispense ──
@@ -173,10 +179,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/dispense`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Dividend ──
@@ -192,10 +199,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/dividend`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Broadcast ──
@@ -212,10 +220,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/broadcast`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Sweep ──
@@ -231,10 +240,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/sweep`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Destroy ──
@@ -250,10 +260,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/destroy`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Fairminter ──
@@ -278,10 +289,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/fairminter`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Fairmint ──
@@ -296,10 +308,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/fairmint`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Attach (UTXO) ──
@@ -315,10 +328,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       ...feeOptions,
       ...utxoOptions,
     },
-    async ({ address, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ address, ...params }) => {
       const data = await client.compose(`/v2/addresses/${address}/compose/attach`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Detach (UTXO) ──
@@ -331,10 +345,11 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       destination: z.string().describe('Destination Bitcoin address'),
       ...feeOptions,
     },
-    async ({ utxo, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ utxo, ...params }) => {
       const data = await client.compose(`/v2/utxos/${utxo}/compose/detach`, params);
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Move to UTXO ──
@@ -347,9 +362,10 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       destination: z.string().optional().describe('Destination Bitcoin address'),
       ...feeOptions,
     },
-    async ({ utxo, ...params }) => {
+    composeAnnotations,
+    safeHandler(async ({ utxo, ...params }) => {
       const data = await client.compose(`/v2/utxos/${utxo}/compose/movetoutxo`, params);
       return jsonResponse(data);
-    }
+    })
   );
 }

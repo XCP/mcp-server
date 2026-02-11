@@ -1,10 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
+import { jsonResponse, safeHandler } from '../helpers.js';
 
-function jsonResponse(data: unknown) {
-  return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-}
+const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: true };
 
 export function registerUtilityTools(server: McpServer, client: ApiClient) {
   // ── Unpack Transaction ──
@@ -16,13 +15,14 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
       raw_transaction: z.string().describe('Raw transaction hex containing a Counterparty message'),
       block_index: z.number().optional().describe('Block index for context (optional)'),
     },
-    async ({ raw_transaction, block_index }) => {
+    readOnly,
+    safeHandler(async ({ raw_transaction, block_index }) => {
       const data = await client.get('/v2/transactions/unpack', {
         datahex: raw_transaction,
         block_index,
       });
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Server Info ──
@@ -31,10 +31,11 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
     'get_server_info',
     'Get Counterparty node status, version, and network information',
     {},
-    async () => {
+    readOnly,
+    safeHandler(async () => {
       const data = await client.get('/v2/');
       return jsonResponse(data);
-    }
+    })
   );
 
   // ── Generic API Request ──
@@ -49,11 +50,12 @@ export function registerUtilityTools(server: McpServer, client: ApiClient) {
       method: z.enum(['GET', 'POST']).default('GET').optional().describe('HTTP method'),
       params: z.record(z.string()).optional().describe('Query parameters (for GET) or body fields (for POST)'),
     },
-    async ({ endpoint, method, params }) => {
+    { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    safeHandler(async ({ endpoint, method, params }) => {
       const data = method === 'POST'
         ? await client.post(endpoint, params ?? {})
         : await client.get(endpoint, params);
       return jsonResponse(data);
-    }
+    })
   );
 }
