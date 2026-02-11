@@ -2,11 +2,15 @@
 
 Give AI agents the ability to interact with [Counterparty](https://counterparty.io) — the token protocol built on Bitcoin. Query balances, assets, orders, and dispensers. Compose, sign, and broadcast transactions. Works with any MCP-compatible client.
 
-## Quick Start
+[![npm](https://img.shields.io/npm/v/@21e14/mcp-server)](https://www.npmjs.com/package/@21e14/mcp-server)
 
-Add to your MCP client config. No API keys or environment variables required.
+## Install
 
-**Claude Desktop** (`claude_desktop_config.json`):
+No download needed — just add the config below to your AI client. `npx` fetches and runs the server automatically.
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json` ([how to find it](https://modelcontextprotocol.io/quickstart/user)):
 
 ```json
 {
@@ -19,7 +23,13 @@ Add to your MCP client config. No API keys or environment variables required.
 }
 ```
 
-**Claude Code** (`.claude/settings.json`):
+### Claude Code
+
+```bash
+claude mcp add counterparty -- npx @21e14/mcp-server
+```
+
+Or add to `.claude/settings.json`:
 
 ```json
 {
@@ -30,6 +40,52 @@ Add to your MCP client config. No API keys or environment variables required.
     }
   }
 }
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "counterparty": {
+      "command": "npx",
+      "args": ["@21e14/mcp-server"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "counterparty": {
+      "command": "npx",
+      "args": ["@21e14/mcp-server"]
+    }
+  }
+}
+```
+
+### ChatGPT
+
+In ChatGPT desktop, go to **Settings → Beta Features → MCP Servers**, then add:
+
+```
+npx @21e14/mcp-server
+```
+
+### Any MCP Client
+
+The server speaks stdio. Point any MCP-compatible client at:
+
+```bash
+npx @21e14/mcp-server
 ```
 
 That's it. The agent can now query the Counterparty network and compose unsigned transactions.
