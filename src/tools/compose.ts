@@ -70,6 +70,7 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
       get_asset: z.string().describe('Asset to receive/buy'),
       get_quantity: z.number().int().min(1).describe('Raw integer amount to receive. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
       expiration: z.number().int().min(1).max(8064).describe('Number of blocks until order expires (max 8064, ~2 months)'),
+      fee_required: z.number().int().default(0).optional().describe('BTC fee required from counterparty for BTC trades (in satoshis). Use 0 (recommended) unless you specifically need to require a fee.'),
       ...feeOptions,
       ...utxoOptions,
     },

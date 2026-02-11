@@ -65,14 +65,41 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
 
   server.tool(
     'get_fee_estimate',
-    'Get the current Bitcoin fee rate estimate from the Counterparty node',
+    'Get current Bitcoin fee rates in sat/vB. Queries the Counterparty node first, falls back to mempool.space. Use the returned values directly as sat_per_vbyte in compose tools.',
     {
-      conf_target: z.number().int().min(1).default(3).optional().describe('Confirmation target in blocks (default 3)'),
+      conf_target: z.number().int().min(1).default(3).optional().describe('Confirmation target in blocks (default 3). Only used for Counterparty node estimate.'),
     },
     readOnlyAnnotations,
     safeHandler(async ({ conf_target }) => {
-      const data = await client.get('/v2/bitcoin/estimatesmartfee', { conf_target });
-      return jsonResponse(data);
+      // Try Counterparty node first (returns sat/kB, convert to sat/vB)
+      try {
+        const data = await client.get('/v2/bitcoin/estimatesmartfee', { conf_target }) as { result: number };
+        const satPerKb = data.result;
+        if (satPerKb > 0) {
+          const satPerVb = Math.max(1, Math.round(satPerKb / 1000));
+          return jsonResponse({ sat_per_vbyte: satPerVb, source: 'counterparty', unit: 'sat/vB' });
+        }
+      } catch {
+        // Fall through to mempool.space
+      }
+
+      // Fallback: mempool.space
+      const response = await fetch('https://mempool.space/api/v1/fees/recommended', {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        throw new Error(`Fee estimation failed from both Counterparty node and mempool.space`);
+      }
+      const fees = await response.json();
+      return jsonResponse({
+        fastest: fees.fastestFee,
+        half_hour: fees.halfHourFee,
+        hour: fees.hourFee,
+        economy: fees.economyFee,
+        minimum: fees.minimumFee,
+        source: 'mempool.space',
+        unit: 'sat/vB',
+      });
     })
   );
 
