@@ -7,6 +7,15 @@ export type ToolResult = {
   isError?: boolean;
 };
 
+/** MCP tool annotations for read-only query tools. */
+export const readOnlyAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: true } as const;
+
+/** MCP tool annotations for compose and other non-destructive mutating tools. */
+export const composeAnnotations = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
+
+/** MCP tool annotations for irreversible tools (broadcast, sign_and_broadcast). */
+export const destructiveAnnotations = { readOnlyHint: false, destructiveHint: true, openWorldHint: true } as const;
+
 /**
  * Format successful data as a JSON text response.
  */

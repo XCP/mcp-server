@@ -120,6 +120,15 @@ describe('initSigningConfig', () => {
     expect(config!.privateKeyHex).toBe('0000000000000000000000000000000000000000000000000000000000000001');
   });
 
+  test('returns null and logs error for P2PKH address (unsupported for signing)', () => {
+    process.env.SIGNER_PRIVATE_KEY = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn';
+    process.env.SIGNER_ADDRESS = '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa';
+    expect(initSigningConfig()).toBeNull();
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining('P2PKH')
+    );
+  });
+
   test('returns config for valid WIF + p2tr address', () => {
     process.env.SIGNER_PRIVATE_KEY = 'KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn';
     process.env.SIGNER_ADDRESS = 'bc1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297';

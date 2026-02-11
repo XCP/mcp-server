@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { ApiClient } from '../api-client.js';
 import { SigningConfig, signTransaction, extractOpReturnData } from '../signer.js';
-import { jsonResponse, safeHandler } from '../helpers.js';
+import { jsonResponse, safeHandler, readOnlyAnnotations, destructiveAnnotations } from '../helpers.js';
 
 export function registerBitcoinTools(server: McpServer, client: ApiClient, signingConfig: SigningConfig | null) {
   // ── Broadcast Transaction ──
@@ -13,7 +13,7 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
     {
       raw_transaction: z.string().describe('Signed raw transaction hex'),
     },
-    { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    destructiveAnnotations,
     safeHandler(async ({ raw_transaction }) => {
       const data = await client.post('/v2/bitcoin/transactions', {
         signedhex: raw_transaction,
@@ -32,10 +32,10 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
       `Only use this with transactions composed for this address.`,
       {
         raw_transaction: z.string().describe('Unsigned raw transaction hex (from a compose tool)'),
-        inputs_values: z.array(z.number()).optional().describe('Input values in satoshis (from compose response btc_in_values or inputs_values)'),
+        inputs_values: z.array(z.number().int()).optional().describe('Input values in satoshis (from compose response btc_in_values or inputs_values)'),
         lock_scripts: z.array(z.string()).optional().describe('Input lock scripts in hex (from compose response lock_scripts)'),
       },
-      { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      destructiveAnnotations,
       safeHandler(async ({ raw_transaction, inputs_values, lock_scripts }) => {
         // Extract OP_RETURN data locally (trustless — does not call the API)
         const opReturnData = extractOpReturnData(raw_transaction);
@@ -67,9 +67,9 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
     'get_fee_estimate',
     'Get the current Bitcoin fee rate estimate from the Counterparty node',
     {
-      conf_target: z.number().default(3).optional().describe('Confirmation target in blocks (default 3)'),
+      conf_target: z.number().int().min(1).default(3).optional().describe('Confirmation target in blocks (default 3)'),
     },
-    { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    readOnlyAnnotations,
     safeHandler(async ({ conf_target }) => {
       const data = await client.get('/v2/bitcoin/estimatesmartfee', { conf_target });
       return jsonResponse(data);
@@ -84,7 +84,7 @@ export function registerBitcoinTools(server: McpServer, client: ApiClient, signi
     {
       raw_transaction: z.string().describe('Raw transaction hex to decode'),
     },
-    { readOnlyHint: true, destructiveHint: false, openWorldHint: true },
+    readOnlyAnnotations,
     safeHandler(async ({ raw_transaction }) => {
       const data = await client.get('/v2/bitcoin/transactions/decode', { rawtransaction: raw_transaction });
       return jsonResponse(data);

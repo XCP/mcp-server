@@ -14,8 +14,8 @@ function extractErrorMessage(body: string): string {
 }
 
 export class ApiClient {
-  private baseUrl: string;
-  private timeoutMs: number;
+  private readonly baseUrl: string;
+  private readonly timeoutMs: number;
 
   constructor(baseUrl: string, timeoutMs = DEFAULT_TIMEOUT_MS) {
     // Remove trailing slash

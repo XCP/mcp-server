@@ -2,11 +2,11 @@
  * Optional transaction signing using @scure/btc-signer and @noble libraries.
  * Only used when SIGNER_PRIVATE_KEY and SIGNER_ADDRESS env vars are set.
  */
-import { Transaction, p2wpkh, p2sh, p2tr } from '@scure/btc-signer';
-import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
+import { createBase58check } from '@scure/base';
+import { Transaction, p2wpkh } from '@scure/btc-signer';
 import { secp256k1 } from '@noble/curves/secp256k1.js';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { createBase58check } from '@scure/base';
+import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js';
 
 const base58check = createBase58check(sha256);
 
@@ -19,6 +19,9 @@ const TX_PARSE_OPTS = {
 } as const;
 
 export type AddressType = 'p2pkh' | 'p2wpkh' | 'p2sh-p2wpkh' | 'p2tr';
+export type SignableAddressType = Exclude<AddressType, 'p2pkh'>;
+
+// ── Address Detection ──
 
 /**
  * Detect the address type from a Bitcoin address string.
@@ -36,6 +39,8 @@ export function detectAddressType(address: string): AddressType {
   // Starts with 1 or m/n (testnet)
   return 'p2pkh';
 }
+
+// ── WIF Decoding ──
 
 /**
  * Decode a WIF private key to hex and compressed flag.
@@ -58,11 +63,13 @@ function getPublicKey(privateKeyHex: string, compressed: boolean): Uint8Array {
   return secp256k1.getPublicKey(hexToBytes(privateKeyHex), compressed);
 }
 
+// ── Signing Config ──
+
 export interface SigningConfig {
   privateKeyHex: string;
   compressed: boolean;
   address: string;
-  addressType: AddressType;
+  addressType: SignableAddressType;
 }
 
 /**
@@ -87,6 +94,14 @@ export function initSigningConfig(): SigningConfig | null {
     const { privateKey, compressed } = decodeWIF(wif);
     const addressType = detectAddressType(address);
 
+    if (addressType === 'p2pkh') {
+      console.error(
+        'Error: P2PKH (legacy) addresses are not supported for signing. ' +
+        'Use a segwit address: P2WPKH (bc1q...), P2SH-P2WPKH (3...), or P2TR (bc1p...).'
+      );
+      return null;
+    }
+
     return {
       privateKeyHex: privateKey,
       compressed,
@@ -99,6 +114,8 @@ export function initSigningConfig(): SigningConfig | null {
     return null;
   }
 }
+
+// ── OP_RETURN Extraction ──
 
 const CNTRPRTY_PREFIX = new Uint8Array([0x43, 0x4e, 0x54, 0x52, 0x50, 0x52, 0x54, 0x59]);
 const OP_RETURN = 0x6a;
@@ -215,6 +232,8 @@ export function extractOpReturnData(rawTransactionHex: string): string | null {
   return null;
 }
 
+// ── Transaction Signing ──
+
 /**
  * Sign a raw transaction hex using the configured private key.
  */
@@ -228,7 +247,6 @@ export function signTransaction(
 
   try {
     const pubkeyBytes = getPublicKey(config.privateKeyHex, config.compressed);
-    const isLegacy = config.addressType === 'p2pkh';
 
     const hasApiData = inputValues && lockScripts &&
                        inputValues.length > 0 && lockScripts.length > 0;
@@ -241,6 +259,14 @@ export function signTransaction(
 
     const rawTxBytes = hexToBytes(rawTransactionHex);
     const parsedTx = Transaction.fromRaw(rawTxBytes, TX_PARSE_OPTS);
+
+    if (inputValues.length < parsedTx.inputsLength || lockScripts.length < parsedTx.inputsLength) {
+      throw new Error(
+        `Mismatch: transaction has ${parsedTx.inputsLength} inputs but received ` +
+        `${inputValues.length} values and ${lockScripts.length} lock scripts.`
+      );
+    }
+
     const tx = new Transaction(TX_PARSE_OPTS);
 
     for (let i = 0; i < parsedTx.inputsLength; i++) {
@@ -262,7 +288,7 @@ export function signTransaction(
       };
 
       // P2SH-P2WPKH needs the redeem script
-      if (!isLegacy && config.addressType === 'p2sh-p2wpkh') {
+      if (config.addressType === 'p2sh-p2wpkh') {
         const redeemScript = p2wpkh(pubkeyBytes).script;
         if (redeemScript) {
           inputData.redeemScript = redeemScript;
