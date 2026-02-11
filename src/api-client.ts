@@ -55,14 +55,18 @@ export class ApiClient {
 
   /**
    * Make a POST request to the Counterparty API.
+   * Counterparty uses query params for POST endpoints (not JSON body).
    */
-  async post(endpoint: string, body: unknown): Promise<unknown> {
-    const url = `${this.baseUrl}${endpoint}`;
+  async post(endpoint: string, params: Record<string, unknown>): Promise<unknown> {
+    const url = new URL(`${this.baseUrl}${endpoint}`);
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) {
+        url.searchParams.set(key, String(value));
+      }
+    }
 
-    const response = await fetch(url, {
+    const response = await fetch(url.toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.timeoutMs),
     });
 
