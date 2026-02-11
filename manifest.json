@@ -1,0 +1,60 @@
+{
+  "manifest_version": "0.3",
+  "name": "counterparty",
+  "display_name": "Counterparty",
+  "version": "1.0.1",
+  "description": "Give AI agents the ability to interact with Counterparty — the token protocol built on Bitcoin. Query balances, assets, orders, dispensers, and compose/sign/broadcast transactions.",
+  "author": {
+    "name": "Counterparty"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XCP/mcp-server.git"
+  },
+  "homepage": "https://counterparty.io",
+  "support": "https://github.com/XCP/mcp-server/issues",
+  "keywords": ["counterparty", "xcp", "bitcoin", "blockchain", "tokens", "dex"],
+  "license": "MIT",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "COUNTERPARTY_NODE": "${user_config.counterparty_node}",
+        "SIGNER_PRIVATE_KEY": "${user_config.signer_private_key}",
+        "SIGNER_ADDRESS": "${user_config.signer_address}"
+      }
+    }
+  },
+  "tools_generated": true,
+  "user_config": {
+    "counterparty_node": {
+      "type": "string",
+      "title": "Counterparty Node URL",
+      "description": "Counterparty node URL (default: https://api.counterparty.io:4000)",
+      "required": false,
+      "default": "https://api.counterparty.io:4000"
+    },
+    "signer_private_key": {
+      "type": "string",
+      "title": "Signing Private Key",
+      "description": "WIF-encoded private key for transaction signing. Enables the sign_and_broadcast tool. Only use a dedicated bot wallet.",
+      "required": false,
+      "sensitive": true
+    },
+    "signer_address": {
+      "type": "string",
+      "title": "Signer Address",
+      "description": "Bitcoin address for the signing key (bc1q... or bc1p...). Required with Signing Private Key.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}

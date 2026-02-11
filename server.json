@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.XCP/mcp-server",
+  "description": "MCP server for the Counterparty token protocol on Bitcoin. Query balances, assets, orders, dispensers, and compose/sign/broadcast transactions.",
+  "repository": {
+    "url": "https://github.com/XCP/mcp-server",
+    "source": "github"
+  },
+  "version": "1.0.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@21e14/mcp-server",
+      "version": "1.0.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "COUNTERPARTY_NODE",
+          "description": "Counterparty node URL (default: https://api.counterparty.io:4000)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "SIGNER_PRIVATE_KEY",
+          "description": "WIF-encoded private key for transaction signing",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "SIGNER_ADDRESS",
+          "description": "Bitcoin address for the signing key",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
