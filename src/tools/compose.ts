@@ -62,13 +62,16 @@ export function registerComposeTools(server: McpServer, client: ApiClient) {
 
   server.tool(
     'compose_order',
-    'Compose a DEX order to trade Counterparty assets. Creates a limit order on the decentralized exchange.',
+    'Compose a DEX order to trade Counterparty assets. IMPORTANT: give_quantity and get_quantity are TOTAL amounts, not per-unit prices. ' +
+    'The price per unit is the ratio between them. ' +
+    'Example: to buy 1000 TOKENA at 0.5 XCP each, set give_asset=XCP, give_quantity=500*10^8 (500 XCP total), get_asset=TOKENA, get_quantity=1000. ' +
+    'Example: to sell 50 XCP for BTC at 0.001 BTC per XCP, set give_asset=XCP, give_quantity=50*10^8, get_asset=BTC, get_quantity=50*100000 (0.05 BTC total).',
     {
       address: z.string().describe('Source Bitcoin address'),
       give_asset: z.string().describe('Asset to give/sell'),
-      give_quantity: z.number().int().min(1).describe('Raw integer amount to give. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
+      give_quantity: z.number().int().min(1).describe('TOTAL raw integer amount to give (not per-unit). For divisible assets: human amount * 10^8. For BTC: satoshis.'),
       get_asset: z.string().describe('Asset to receive/buy'),
-      get_quantity: z.number().int().min(1).describe('Raw integer amount to receive. For divisible assets: human amount * 10^8. For BTC: satoshis.'),
+      get_quantity: z.number().int().min(1).describe('TOTAL raw integer amount to receive (not per-unit). For divisible assets: human amount * 10^8. For BTC: satoshis. Price = give_quantity / get_quantity.'),
       expiration: z.number().int().min(1).max(8064).describe('Number of blocks until order expires (max 8064, ~2 months)'),
       fee_required: z.number().int().default(0).optional().describe('BTC fee required from counterparty for BTC trades (in satoshis). Use 0 (recommended) unless you specifically need to require a fee.'),
       ...feeOptions,
